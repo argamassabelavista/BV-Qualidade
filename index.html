@@ -263,7 +263,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <div class="fbar" id="dashFbar">
     <div class="fg"><div class="fl" style="display:flex;align-items:center;gap:6px;">Família<button onclick="openFamMap()" title="Mapear produtos a famílias" style="border:none;background:none;cursor:pointer;color:var(--acc,#4ea8de);font-size:13px;padding:0;line-height:1;">⚙</button></div><select class="fs" id="sFam" onchange="onFamChange()" style="min-width:160px"><option value="">Todas as famílias</option></select></div>
     <div class="fsep"></div>
-    <div class="fg"><div class="fl">Tipo de Ensaio</div><select class="fs" id="sCat" onchange="onCatChange()" style="min-width:185px"><option value="">Todos os tipos</option></select></div>
+    <div class="fg"><div class="fl">Tipo de Ensaio</div><select class="fs" id="sCat" onchange="CAT_ESCOLHIDA=true;onCatChange()" style="min-width:185px"><option value="">Todos os tipos</option></select></div>
     <div class="fsep"></div>
     <div class="fg"><div class="fl">Produto</div><select class="fs" id="sProd" onchange="render()"></select></div>
     <div class="fsep"></div>
@@ -312,6 +312,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
         <div class="li"><div class="ls" style="background:#e74c3c;border-radius:50%"></div>Rep. Acima do Máx</div>
       </div>
     </div>
+    <div id="avisoMistura" style="display:none;margin:0 0 8px;padding:7px 10px;border:1px solid rgba(230,126,34,.45);background:rgba(230,126,34,.10);color:#f0b27a;border-radius:6px;font-size:12px">⚠ Tipos de ensaio diferentes estão misturados (unidades ou idades distintas, ex.: MPa e mm) — o gráfico, a média e os percentuais ficam distorcidos. Selecione um tipo de ensaio para análise.</div>
     <div class="cw" style="height:240px"><canvas id="cLt"></canvas></div>
   </div>
   <div class="sh"><div class="st">Análise mensal</div></div>
@@ -1125,6 +1126,16 @@ function patchFamFromExtras() {
   try { localStorage.setItem('bv_prod_fam_map', JSON.stringify(PROD_FAM_MAP)); } catch(e) {}
 }
 
+// Tipo de ensaio padrão ao abrir o dashboard (evita misturar MPa com mm).
+// Só é aplicado enquanto o usuário não escolher um tipo manualmente.
+const CAT_PADRAO_RE = /COMPRESS[ÃA]O \(28 DIAS\)/i;
+let CAT_ESCOLHIDA = false;
+function aplicarTipoPadrao() {
+  if (CAT_ESCOLHIDA) return;
+  const el = document.getElementById('sCat'); if (!el || el.value) return;
+  const op = [...el.options].find(o => o.value && CAT_PADRAO_RE.test(o.value));
+  if (op) el.value = op.value;
+}
 function initSel() {
   patchFamFromExtras();
   function pop(id, items, al, av) {
@@ -1142,6 +1153,7 @@ function initSel() {
   // Populate test types based on family
   const cats=[...new Set(DATA.filter(d=>!curFam||d.fam===curFam).map(d=>d.t).filter(Boolean))].sort();
   pop('sCat',cats,'Todos os tipos','');
+  aplicarTipoPadrao();
   const curCat=document.getElementById('sCat').value;
   // Populate products
   pop('sProd',prods(curFam,curCat),'Todos os produtos','T');
@@ -1200,6 +1212,7 @@ function onFamChange() {
   const cats=[...new Set(DATA.filter(d=>!fam||d.fam===fam).map(d=>d.t).filter(Boolean))].sort();
   const sCat=document.getElementById('sCat');
   sCat.innerHTML='<option value="">Todos os tipos</option>'+cats.map(t=>`<option value="${t}">${t}</option>`).join('');
+  aplicarTipoPadrao();
   onCatChange();
 }
 function onCatChange() {
@@ -1219,6 +1232,8 @@ const GC={grid:'rgba(255,255,255,.055)',tick:'#555'};
 
 function render() {
   const data=fd(); const {p,cat}=getF();
+  const avM=document.getElementById('avisoMistura');
+  if(avM){ const nTipos=new Set(data.map(d=>d.t)).size; avM.style.display=(!cat&&nTipos>1)?'block':'none'; }
   const firstT=data.length?data[0].t:cat;
   const un=unidadeOf(firstT||cat);
   const n=data.length,a=data.filter(d=>d.ok).length;
