@@ -231,6 +231,84 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
 .ftab:hover{color:var(--gy2)} .ftab.on{color:#fff;border-bottom-color:var(--amb)}
 .ftab-page{display:none} .ftab-page.on{display:block}
 
+
+/* ══ RELATÓRIO GERENCIAL (26/09/2026) ══ */
+.rg-bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.rg-btn2{background:transparent;color:var(--wh);border:1px solid var(--b2);border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+.rg-btn2:hover{border-color:var(--gy2)}
+.rg-btn2:disabled,.btn-import:disabled{opacity:.45;cursor:not-allowed}
+.rg-lnk{background:none;border:none;color:var(--gy2);font-size:12px;cursor:pointer;text-decoration:underline}
+.rg-sub{font-size:12px;color:var(--gy2);margin-bottom:10px}
+.rg-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.rg-vazio{padding:40px 16px;text-align:center;color:var(--gy);font-size:13px}
+.rg-mes{display:grid;grid-template-columns:130px 1fr auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--b1);font-size:12.5px}
+.rg-mes:first-child{border-top:none}
+.rg-tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px}
+.rg-tag.pub{background:rgba(39,174,96,.18);color:var(--grn2)}
+.rg-tag.ras{background:rgba(230,126,34,.18);color:var(--amb)}
+.rg-tag.blq{background:rgba(255,255,255,.06);color:var(--gy)}
+.rg-mot{color:var(--gy);font-size:11.5px}
+.rg-doc{background:var(--card);border:1px solid var(--b1);border-radius:9px;padding:22px 26px}
+.rg-doc h1{font-size:19px;font-weight:700;margin-bottom:4px}
+.rg-doc h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--gy2);margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--b1)}
+.rg-doc h3{font-size:13px;font-weight:700;margin:14px 0 6px}
+.rg-doc p,.rg-doc li{font-size:12.5px;line-height:1.55;color:var(--gy2)}
+.rg-doc ul{padding-left:18px}
+.rg-meta{font-size:11.5px;color:var(--gy)}
+.rg-aviso{margin:10px 0;padding:8px 12px;border:1px solid rgba(230,126,34,.45);background:rgba(230,126,34,.10);color:#f0b27a;border-radius:6px;font-size:12px}
+.rg-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.rg-kpi{background:#151515;border:1px solid var(--b1);border-radius:8px;padding:10px 12px}
+.rg-kpi .l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gy)}
+.rg-kpi .v{font-size:22px;font-weight:700;margin-top:2px}
+.rg-kpi .d{font-size:11px;color:var(--gy)}
+.rg-tab{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:4px}
+.rg-tab th{background:#111;padding:6px 8px;text-align:left;color:var(--gy);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.rg-tab td{padding:5px 8px;border-bottom:1px solid #1c1c1c;color:var(--gy2);vertical-align:top}
+.rg-tab td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rg-up{color:var(--grn2)} .rg-dn{color:var(--red2)} .rg-am{color:var(--amb)}
+.rg-plano{border:1px solid var(--b1);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#151515}
+.rg-plano .t{font-size:13px;font-weight:700;margin-bottom:6px}
+.rg-5w{display:grid;grid-template-columns:110px 1fr;gap:3px 12px;font-size:12px}
+.rg-5w .k{color:var(--gy);font-weight:700;font-size:10.5px;text-transform:uppercase;padding-top:2px}
+.rg-5w .v{color:var(--gy2);white-space:pre-wrap}
+.rg-5w textarea,.rg-com{width:100%;background:#0f0f0f;border:1px solid var(--b2);border-radius:5px;color:var(--wh);font:inherit;font-size:12px;padding:5px 7px;resize:vertical;min-height:34px}
+.rg-com{min-height:70px}
+.rg-acoes{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px;position:sticky;bottom:0;background:var(--bg);padding:10px 0;border-top:1px solid var(--b1)}
+.rg-doc details{margin:6px 0}
+.rg-doc summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--wh);padding:4px 0}
+.rg-ref li{font-size:11.5px}
+@media(max-width:750px){.rg-kpis{grid-template-columns:1fr 1fr}.rg-mes{grid-template-columns:1fr}.rg-doc{padding:14px}.rg-5w{grid-template-columns:1fr}}
+@media print{
+  @page{size:A4;margin:14mm 12mm}
+  body{background:#fff!important;color:#111!important}
+  body *{visibility:hidden}
+  #relDoc,#relDoc *{visibility:visible}
+  #relDoc{position:absolute;left:0;top:0;width:100%}
+  .noprint,.rg-acoes{display:none!important}
+  .rg-doc{background:#fff;border:none;padding:0;color:#111}
+  .rg-doc h1,.rg-doc h3,.rg-doc summary,.rg-plano .t{color:#111}
+  .rg-doc h2{color:#333;border-color:#bbb}
+  .rg-doc p,.rg-doc li,.rg-tab td,.rg-5w .v,.rg-meta,.rg-kpi .d{color:#222}
+  .rg-kpi,.rg-plano{background:#fff;border-color:#bbb}
+  .rg-kpi .v{color:#111}
+  .rg-tab th{background:#eee;color:#333}
+  .rg-tab td{border-color:#ddd}
+  .rg-plano,.rg-tab tr,.rg-kpis{break-inside:avoid}
+  .rg-doc details{display:block}
+  .rg-doc details>*{display:block}
+  .rg-up{color:#1b7a3d}.rg-dn{color:#b3261e}.rg-am{color:#a65d00}
+  .rg-aviso{background:#fff5e6;color:#7a4a00;border-color:#e0b070}
+  #relDoc .tw{overflow:visible!important}
+  .rg-tab{font-size:7.6px}
+  .rg-tab th{font-size:6.8px;padding:3px 3px;white-space:normal}
+  .rg-tab td{padding:2px 3px}
+  .rg-tab td.n{white-space:nowrap}
+  .rg-kpis{grid-template-columns:repeat(5,1fr)!important}
+  .rg-kpi .v{font-size:16px}
+  .rg-5w{grid-template-columns:80px 1fr!important;font-size:10px}
+  .rg-doc p,.rg-doc li{font-size:10.5px}
+  .rg-doc h1{font-size:16px}
+}
 </style>
 </head>
 <body>
@@ -253,6 +331,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <button class="nb" onclick="setPage('form',this)">&#43; Inserir Ensaio</button>
   <button class="nb" onclick="setPage('dados',this)">&#9776; Base de Dados</button>
   <button class="nb" onclick="setPage('ind',this)">&#128202; Indicadores</button>
+  <button class="nb" onclick="setPage('rel',this)">&#128196; Relatório gerencial</button>
 </nav>
 
 <!-- BANNER FONTE DE DADOS -->
@@ -612,6 +691,27 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
     </div>
   </div>
 
+</div>
+
+<!-- RELATÓRIO GERENCIAL (26/09/2026) -->
+<div class="page" id="page-rel">
+  <div class="rg-bar noprint">
+    <div class="fg"><div class="fl">Relatório publicado</div><select class="fs" id="relMesSel" onchange="relAbrirPublicado(this.value)" style="min-width:200px"><option value="">— carregando —</option></select></div>
+    <button class="btn-import" onclick="relExportarPDF()">&#128438; Exportar PDF</button>
+    <button class="rg-btn2" id="relBtnRevisor" onclick="relAbrirRevisor()">&#128274; Área do revisor</button>
+    <span class="import-msg" id="relMsg"></span>
+  </div>
+
+  <div id="relRevisor" class="cb2 mb noprint" style="display:none">
+    <div class="ch"><div class="ct">Área do revisor</div><button class="rg-lnk" onclick="relSairRevisor()">sair</button></div>
+    <div id="relLogin">
+      <div class="rg-sub">Digite a senha do revisor para gerar, editar e publicar relatórios.</div>
+      <div class="rg-row"><input class="fi" type="password" id="relSenha" placeholder="Senha do revisor" style="width:240px" onkeydown="if(event.key==='Enter')relEntrar()"><button class="btn-import" onclick="relEntrar()">Entrar</button></div>
+    </div>
+    <div id="relMeses" style="display:none"></div>
+  </div>
+
+  <div id="relDoc"><div class="rg-vazio">Carregando relatórios…</div></div>
 </div>
 
 <footer class="ft">Argamassa Bela Vista &nbsp;·&nbsp; Rua Hiroji Yokote, 106 — Osasco/SP &nbsp;·&nbsp; (11) 3608-0477 &nbsp;·&nbsp; vendas@argamassabelavista.com.br</footer>
@@ -1778,7 +1878,7 @@ function doResetConfirmed(){
 }
 
 // ══ NAV ══
-function setPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();}
+function setPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();if(id==='rel')relInit();}
 function setFTab(id,btn){document.querySelectorAll('.ftab-page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));document.getElementById('ftab-'+id).classList.add('on');btn.classList.add('on');}
 
 // ══ BOOT ══
@@ -2132,6 +2232,283 @@ render();
 if (SB_MODE === 'online') { loadFromSupabase(); loadIndicadoresSupabase(); } else { renderIndicadores(); }
 // Inicializar tabela batch com 5 linhas vazias
 for(let i=0;i<5;i++) addBatchRow();
+
+// ══ RELATÓRIO GERENCIAL (26/09/2026) ══════════════════════════════════════
+// Tudo passa pela Edge Function "relatorio-gerencial" (a tabela não é pública).
+// A chave publicável vai só no header "apikey" (não é JWT — ver docs Supabase).
+const REL_URL = SUPABASE_URL + '/functions/v1/relatorio-gerencial';
+let REL_SENHA = null;          // só em memória; some ao recarregar a página
+let REL_ATUAL = null;          // {modo:'publicado'|'rascunho', mes, rel}
+let REL_INICIADO = false;
+const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const relMesExt = (m) => { if (!m) return ''; const [a, mm] = m.split('-'); return MESES_PT[Number(mm) - 1] + ' de ' + a; };
+const relMesCurto = (m) => { if (!m) return ''; const [a, mm] = m.split('-'); return MESES_PT[Number(mm) - 1].slice(0, 3) + '/' + a.slice(2); };
+const relEsc = (s) => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const relNum = (v, d = 1) => (v === null || v === undefined || !isFinite(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const relPct = (v) => (v === null || v === undefined ? '—' : relNum(v, 1) + '%');
+const relData = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
+
+async function relApi(corpo) {
+  const r = await fetch(REL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify(corpo) });
+  let j = null; try { j = await r.json(); } catch (e) { j = null; }
+  if (!r.ok) { const err = new Error((j && j.erro) || ('Erro ' + r.status)); err.status = r.status; throw err; }
+  return j;
+}
+function relMsg(t, cor) { const el = document.getElementById('relMsg'); if (el) { el.textContent = t || ''; el.style.color = cor || ''; } }
+
+async function relInit() {
+  if (REL_INICIADO) return;
+  REL_INICIADO = true;
+  await relCarregarPublicados();
+}
+async function relCarregarPublicados(selecionar) {
+  const sel = document.getElementById('relMesSel');
+  try {
+    const j = await relApi({ acao: 'publicos' });
+    const meses = j.meses || [];
+    sel.innerHTML = meses.length ? meses.map((m) => `<option value="${m.mes}">${relMesExt(m.mes)}</option>`).join('') : '<option value="">— nenhum publicado —</option>';
+    const alvo = selecionar || (meses[0] && meses[0].mes);
+    if (alvo) { sel.value = alvo; await relAbrirPublicado(alvo); }
+    else if (!REL_ATUAL) document.getElementById('relDoc').innerHTML = '<div class="rg-vazio">Nenhum relatório publicado ainda. O revisor gera e publica pela <b>Área do revisor</b>.</div>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">— indisponível —</option>';
+    document.getElementById('relDoc').innerHTML = `<div class="rg-vazio">Não foi possível carregar os relatórios (${relEsc(e.message)}).</div>`;
+  }
+}
+async function relAbrirPublicado(mes) {
+  if (!mes) return;
+  relMsg('Carregando…');
+  try {
+    const j = await relApi({ acao: 'ler', mes });
+    REL_ATUAL = { modo: 'publicado', mes, rel: j.relatorio };
+    relRender();
+    relMsg('');
+  } catch (e) { relMsg(e.message, 'var(--red2)'); }
+}
+
+// ── revisor ──
+function relAbrirRevisor() {
+  const box = document.getElementById('relRevisor');
+  box.style.display = 'block';
+  if (REL_SENHA) relListarMeses(); else setTimeout(() => document.getElementById('relSenha').focus(), 50);
+}
+function relSairRevisor() {
+  REL_SENHA = null;
+  document.getElementById('relSenha').value = '';
+  document.getElementById('relLogin').style.display = 'block';
+  document.getElementById('relMeses').style.display = 'none';
+  document.getElementById('relRevisor').style.display = 'none';
+  if (REL_ATUAL && REL_ATUAL.modo === 'rascunho') { REL_ATUAL = null; relCarregarPublicados(); }
+}
+async function relEntrar() {
+  const s = document.getElementById('relSenha').value;
+  if (!s) return;
+  REL_SENHA = s;
+  const ok = await relListarMeses();
+  if (!ok) REL_SENHA = null;
+}
+async function relListarMeses() {
+  const box = document.getElementById('relMeses');
+  box.innerHTML = '<div class="rg-sub">Carregando…</div>';
+  box.style.display = 'block';
+  try {
+    const j = await relApi({ acao: 'revisor_meses', senha: REL_SENHA });
+    document.getElementById('relLogin').style.display = 'none';
+    box.innerHTML = '<div class="rg-sub">Mês = mês da moldagem. O botão <b>Gerar</b> libera quando os lotes produzidos do mês estão lançados na aba Indicadores e a partir do dia 29 do mês seguinte (resultados de 28 dias completos).</div>' +
+      j.meses.slice(0, 12).map((m) => {
+        const tags = (m.publicado_em ? `<span class="rg-tag pub">publicado ${relData(m.publicado_em).slice(0, 10)}</span>` : '') +
+          (m.rascunho_em ? `<span class="rg-tag ras">rascunho ${relData(m.rascunho_em).slice(0, 10)}</span>` : '') +
+          (!m.fechado ? '<span class="rg-tag blq">não fechado</span>' : '');
+        const mot = !m.fechado ? `<div class="rg-mot">${relEsc(m.motivos.join('; '))}</div>` : '';
+        return `<div class="rg-mes"><div><b>${relMesExt(m.mes)}</b></div><div>${tags}${mot}</div><div class="rg-row">` +
+          (m.rascunho_em ? `<button class="rg-btn2" onclick="relAbrirRascunho('${m.mes}')">Abrir rascunho</button>` : '') +
+          `<button class="btn-import" ${m.fechado ? '' : 'disabled'} onclick="relGerar('${m.mes}', ${m.rascunho_em ? 'true' : 'false'})">${m.rascunho_em ? 'Gerar de novo' : 'Gerar'}</button></div></div>`;
+      }).join('');
+    return true;
+  } catch (e) {
+    box.innerHTML = `<div class="rg-sub" style="color:var(--red2)">${relEsc(e.message)}</div>`;
+    if (e.status === 401) { document.getElementById('relLogin').style.display = 'block'; document.getElementById('relSenha').value = ''; }
+    return false;
+  }
+}
+async function relGerar(mes, jaTem) {
+  if (jaTem && !confirm('Já existe um rascunho de ' + relMesExt(mes) + '. Gerar de novo substitui o rascunho (as edições não publicadas serão perdidas). O relatório já publicado só muda quando você publicar de novo. Continuar?')) return;
+  relMsg('Gerando ' + relMesExt(mes) + ' — calculando e pedindo os planos 5W2H à IA (pode levar até 1 minuto)…', 'var(--amb)');
+  try {
+    const j = await relApi({ acao: 'gerar', mes, senha: REL_SENHA });
+    REL_ATUAL = { modo: 'rascunho', mes, rel: j.rascunho };
+    relRender();
+    relMsg('Rascunho gerado. Revise os planos, salve e publique.', 'var(--grn2)');
+    relListarMeses();
+  } catch (e) { relMsg(e.message, 'var(--red2)'); }
+}
+async function relAbrirRascunho(mes) {
+  relMsg('Carregando rascunho…');
+  try {
+    const j = await relApi({ acao: 'ler_rascunho', mes, senha: REL_SENHA });
+    REL_ATUAL = { modo: 'rascunho', mes, rel: j.rascunho };
+    relRender();
+    relMsg('');
+  } catch (e) { relMsg(e.message, 'var(--red2)'); }
+}
+const REL_CAMPOS = [['o_que', 'O quê'], ['por_que', 'Por quê'], ['onde', 'Onde'], ['quando', 'Quando'], ['quem', 'Quem'], ['como', 'Como'], ['quanto', 'Quanto']];
+function relColetarEdicao() {
+  const planos = REL_ATUAL.rel.planos.map((p, i) => {
+    const o = { grupo_id: p.grupo_id, revisado: true };
+    ['titulo', ...REL_CAMPOS.map((c) => c[0])].forEach((c) => { const el = document.getElementById(`rel_${i}_${c}`); o[c] = el ? el.value : (p[c] || ''); });
+    return o;
+  });
+  const com = document.getElementById('rel_comentario');
+  return { planos, comentario: com ? com.value : (REL_ATUAL.rel.comentario || '') };
+}
+async function relSalvar(publicar) {
+  if (!REL_ATUAL || REL_ATUAL.modo !== 'rascunho') return;
+  const ed = relColetarEdicao();
+  if (publicar && !confirm('Publicar o relatório de ' + relMesExt(REL_ATUAL.mes) + '? Ele fica visível para todos que acessam o dashboard.')) return;
+  relMsg(publicar ? 'Publicando…' : 'Salvando…');
+  try {
+    await relApi({ acao: publicar ? 'publicar' : 'salvar', mes: REL_ATUAL.mes, senha: REL_SENHA, planos: ed.planos, comentario: ed.comentario });
+    REL_ATUAL.rel.planos = ed.planos; REL_ATUAL.rel.comentario = ed.comentario;
+    relMsg(publicar ? 'Publicado.' : 'Rascunho salvo.', 'var(--grn2)');
+    relListarMeses();
+    if (publicar) await relCarregarPublicados(REL_ATUAL.mes);
+  } catch (e) { relMsg(e.message, 'var(--red2)'); }
+}
+function relAddPlano() {
+  const ed = relColetarEdicao();
+  REL_ATUAL.rel.planos = ed.planos.concat([{ grupo_id: '', titulo: '', o_que: '', por_que: '', onde: '', quando: '', quem: '', como: '', quanto: '' }]);
+  REL_ATUAL.rel.comentario = ed.comentario;
+  relRender();
+}
+function relRemPlano(i) {
+  if (!confirm('Remover este plano?')) return;
+  const ed = relColetarEdicao();
+  ed.planos.splice(i, 1);
+  REL_ATUAL.rel.planos = ed.planos; REL_ATUAL.rel.comentario = ed.comentario;
+  relRender();
+}
+
+function relExportarPDF() {
+  if (!REL_ATUAL) { relMsg('Abra um relatório primeiro.', 'var(--amb)'); return; }
+  const det = [...document.querySelectorAll('#relDoc details')];
+  const estado = det.map((d) => d.open);
+  det.forEach((d) => { d.open = true; });
+  const tituloAnt = document.title;
+  document.title = 'Relatorio_Gerencial_CQ_' + REL_ATUAL.mes;
+  setTimeout(() => { window.print(); document.title = tituloAnt; det.forEach((d, i) => { d.open = estado[i]; }); }, 60);
+}
+
+// ── renderização ──
+function relDelta(v, d = 1, inverso = false) {
+  if (v === null || v === undefined || !isFinite(v)) return '<span class="rg-meta">—</span>';
+  if (Math.abs(v) < 1e-9) return '<span class="rg-meta">±0</span>';
+  const bom = inverso ? v < 0 : v > 0;
+  return `<span class="${bom ? 'rg-up' : 'rg-dn'}">${v > 0 ? '+' : ''}${relNum(v, d)}</span>`;
+}
+function relSinais(g) {
+  const s = [];
+  if (g.cep && g.cep.fora_3s && g.cep.fora_3s.length) s.push(g.cep.fora_3s.length + ' fora de 3σ');
+  if (g.cep && g.cep.sequencia_7) s.push('7 seguidos do mesmo lado');
+  if (g.cep && g.cep.tendencia_6) s.push('6 ' + g.cep.tendencia_6);
+  if (g.mudanca_significativa) s.push('média mudou (t=' + relNum(g.t_welch, 1) + ')');
+  if (g.n_suspeitos_mes) s.push(g.n_suspeitos_mes + ' suspeito(s)');
+  return s.length ? `<span class="rg-am">${s.join(' · ')}</span>` : '—';
+}
+function relLinhaGrupo(g, comFamilia) {
+  return `<tr>${comFamilia ? `<td>${relEsc(g.familia)}</td>` : ''}<td>${relEsc(g.produto)}</td><td>${relEsc(g.ensaio)}</td>` +
+    `<td class="n">${relNum(g.limites.mn, 1)}${g.limites.mx ? '–' + relNum(g.limites.mx, 1) : '+'}</td>` +
+    `<td class="n">${g.mes.n || 0}</td><td class="n">${relNum(g.mes.media, 2)}</td><td class="n">${relDelta(g.delta_media, 2)}</td>` +
+    `<td class="n">${relNum(g.mes.dp, 2)}</td><td class="n">${relPct(g.mes.pct_conforme)}</td><td class="n">${relPct(g.mes.pct_abaixo)}</td><td class="n">${relPct(g.mes.pct_acima)}</td>` +
+    `<td class="n">${relNum(g.janela.media, 2)}</td><td class="n">${relPct(g.janela.pct_conforme)}</td><td class="n">${g.janela.cpk === null || g.janela.cpk === undefined ? '—' : relNum(g.janela.cpk, 2)}</td>` +
+    `<td class="n">${g.tendencia_por_mes === null ? '—' : relDelta(g.tendencia_por_mes, 2) + '/mês'}</td><td>${relSinais(g)}</td></tr>`;
+}
+const REL_CAB = (comFamilia) => `<tr>${comFamilia ? '<th>Família</th>' : ''}<th>Produto</th><th>Ensaio</th><th>Faixa</th><th>n mês</th><th>Média mês</th><th>Δ × 6m</th><th>Desvio</th><th>% conf.</th><th>% abaixo</th><th>% acima</th><th>Média 6m</th><th>% conf. 6m</th><th>Cpk 6m</th><th>Tendência</th><th>Sinais</th></tr>`;
+
+function relRender() {
+  const alvo = document.getElementById('relDoc');
+  if (!REL_ATUAL) { alvo.innerHTML = ''; return; }
+  const { rel, modo, mes } = REL_ATUAL;
+  const d = rel.dados;
+  const edit = modo === 'rascunho';
+  const G = (id) => d.grupos.find((g) => g.id === id);
+  const rm = d.resumo.mes, rj = d.resumo.janela;
+  const lotes = d.fechamento && d.fechamento.lotes_produzidos;
+  let h = `<div class="rg-doc">`;
+  h += `<h1>Relatório Gerencial de Controle de Qualidade — ${relMesExt(mes)}</h1>`;
+  h += `<div class="rg-meta">Argamassa Bela Vista · Laboratório de CQ · mês da moldagem ${relMesCurto(mes)} comparado ao acumulado de ${relMesCurto(d.janela[0])} a ${relMesCurto(d.janela[5])} · ` +
+    (modo === 'publicado' ? `publicado em ${relData(rel.publicado_em)}` : `<b style="color:var(--amb)">RASCUNHO</b> (não visível ao público)`) + ` · método v${relEsc(d.versao_metodo)}</div>`;
+  if (rel.aviso_ia && edit) h += `<div class="rg-aviso">${relEsc(rel.aviso_ia)}</div>`;
+  (d.avisos || []).forEach((a) => { h += `<div class="rg-aviso">${relEsc(a)}</div>`; });
+
+  // 1. resumo
+  h += `<h2>1. Resumo do mês</h2><div class="rg-kpis">` +
+    `<div class="rg-kpi"><div class="l">Resultados de CQ</div><div class="v">${rm.n}</div><div class="d">6 meses: ${rj.n}${lotes ? ' · ' + lotes + ' lotes produzidos' : ''}</div></div>` +
+    `<div class="rg-kpi"><div class="l">% conforme</div><div class="v">${relPct(rm.pct_conforme)}</div><div class="d">6 meses: ${relPct(rj.pct_conforme)} (${relDelta(rm.pct_conforme - rj.pct_conforme, 1)} p.p.)</div></div>` +
+    `<div class="rg-kpi"><div class="l">% abaixo do mínimo</div><div class="v rg-dn">${relPct(rm.pct_abaixo)}</div><div class="d">6 meses: ${relPct(rj.pct_abaixo)}</div></div>` +
+    `<div class="rg-kpi"><div class="l">% acima do máximo</div><div class="v rg-am">${relPct(rm.pct_acima)}</div><div class="d">6 meses: ${relPct(rj.pct_acima)}</div></div>` +
+    `<div class="rg-kpi"><div class="l">Itens críticos</div><div class="v">${d.criticos.length}</div><div class="d">${d.suspeitos.length} resultado(s) suspeito(s)</div></div></div>`;
+  h += `<table class="rg-tab" style="margin-top:12px"><thead><tr><th>Família</th><th>n mês</th><th>% conf. mês</th><th>% abaixo</th><th>% acima</th><th>n 6m</th><th>% conf. 6m</th><th>Δ p.p.</th></tr></thead><tbody>` +
+    d.familias.map((f) => `<tr><td>${relEsc(f.familia)}</td><td class="n">${f.mes.n}</td><td class="n">${relPct(f.mes.pct_conforme)}</td><td class="n">${relPct(f.mes.pct_abaixo)}</td><td class="n">${relPct(f.mes.pct_acima)}</td><td class="n">${f.janela.n}</td><td class="n">${relPct(f.janela.pct_conforme)}</td><td class="n">${f.mes.n && f.janela.n ? relDelta(f.mes.pct_conforme - f.janela.pct_conforme, 1) : '—'}</td></tr>`).join('') + '</tbody></table>';
+
+  // 2. críticos
+  h += `<h2>2. Itens críticos do mês</h2><p>Ranking por criticidade = (3 × % abaixo do mínimo + 1 × % acima do máximo) × log₂(1 + n). Resistência abaixo do mínimo pesa 3× por ser risco ao cliente; acima do máximo indica custo/superdosagem ou variabilidade.</p>`;
+  h += d.criticos.length ? `<div class="tw"><table class="rg-tab"><thead>${REL_CAB(true)}</thead><tbody>${d.criticos.map((id) => relLinhaGrupo(G(id), true)).join('')}</tbody></table></div>` : '<p>Nenhum item crítico no mês.</p>';
+
+  // 3. planos
+  h += `<h2>3. Planos de ação (5W2H)</h2>`;
+  h += edit ? `<p><b>Rascunho sugerido pela IA a partir dos números acima — revise, corrija e complete antes de publicar.</b> As causas são hipóteses a confirmar.</p>` : `<p>Planos revisados pelo responsável de CQ.</p>`;
+  (rel.planos || []).forEach((p, i) => {
+    const g = G(p.grupo_id);
+    const ref = g ? `${relEsc(g.produto)} — ${relEsc(g.ensaio)}` : 'Geral';
+    if (edit) {
+      h += `<div class="rg-plano"><div class="rg-row" style="justify-content:space-between"><span class="rg-meta">${ref}</span><button class="rg-lnk noprint" onclick="relRemPlano(${i})">remover</button></div>` +
+        `<input class="fi" id="rel_${i}_titulo" value="${relEsc(p.titulo)}" placeholder="Título do plano" style="width:100%;margin:6px 0;font-weight:700">` +
+        `<div class="rg-5w">${REL_CAMPOS.map(([c, n]) => `<div class="k">${n}</div><div><textarea id="rel_${i}_${c}" rows="2">${relEsc(p[c])}</textarea></div>`).join('')}</div></div>`;
+    } else {
+      h += `<div class="rg-plano"><div class="t">${i + 1}. ${relEsc(p.titulo || 'Plano de ação')}</div><div class="rg-meta" style="margin-bottom:6px">${ref}</div>` +
+        `<div class="rg-5w">${REL_CAMPOS.map(([c, n]) => `<div class="k">${n}</div><div class="v">${relEsc(p[c]) || '—'}</div>`).join('')}</div></div>`;
+    }
+  });
+  if (edit) h += `<button class="rg-btn2 noprint" onclick="relAddPlano()">+ Adicionar plano</button>`;
+  if (!edit && !(rel.planos || []).length) h += '<p>Sem planos de ação neste mês.</p>';
+
+  // 4. oportunidades
+  h += `<h2>4. Oportunidades de custo e variabilidade</h2><p>Base: últimos 7 meses. <b>Média mínima segura</b> = mínimo + 2,33 × desvio (≈ 1 % dos lotes abaixo do mínimo). Se a média atual está acima dela, há margem para reduzir cimento; se não, a prioridade é reduzir a variação. Valores em kg de cimento e R$ são <b>estimativas a validar com estudo de dosagem</b>.</p>`;
+  h += d.oportunidades.length ? `<div class="tw"><table class="rg-tab"><thead><tr><th>Produto</th><th>Ensaio</th><th>Média 7m</th><th>Desvio</th><th>Média mínima segura</th><th>Margem</th><th>Leitura</th></tr></thead><tbody>` +
+    d.oportunidades.map((o) => `<tr><td>${relEsc(o.produto)}</td><td>${relEsc(o.ensaio)}</td><td class="n">${relNum(o.media, 2)}</td><td class="n">${relNum(o.dp, 2)}</td><td class="n">${relNum(o.media_segura, 2)}</td><td class="n">${relDelta(o.margem_mpa, 2)}</td><td style="white-space:normal">` +
+      (o.tipo === 'margem'
+        ? `Margem de ${relNum(o.margem_mpa, 1)} MPa acima do seguro.${o.reducao_cimento_pp_estimada !== null ? ` Estimativa: −${relNum(o.reducao_cimento_pp_estimada, 1)} p.p. de cimento${o.economia_rs_t_estimada !== null ? ` (≈ R$ ${relNum(o.economia_rs_t_estimada, 2)}/t)` : ''}.` : ' Cadastre a formulação para estimar kg e R$.'}`
+        : `Resultados acima do máximo por <b>variabilidade</b>: com o desvio atual a média precisa ficar em ${relNum(o.media_segura, 1)} MPa. Para caber na faixa, o desvio teria de cair para ${relNum(o.dp_alvo, 2)} MPa. Reduzir dispersão antes de mexer no cimento.`) +
+      `</td></tr>`).join('') + '</tbody></table></div>' : '<p>Nenhuma oportunidade identificada.</p>';
+
+  // 5. suspeitos
+  h += `<h2>5. Resultados suspeitos (conferir lançamento/ensaio)</h2><p>Sinalizados, não removidos dos cálculos. Critérios: menos da metade do mínimo, mais que o dobro do máximo, ou muito distante dos demais resultados do produto (mediana ± 3,5 × MAD).</p>`;
+  h += d.suspeitos.length ? `<table class="rg-tab"><thead><tr><th>Produto</th><th>Ensaio</th><th>Lote</th><th>Resultado</th><th>Mediana do produto</th><th>Motivo</th></tr></thead><tbody>` +
+    d.suspeitos.map((s) => `<tr><td>${relEsc(s.produto)}</td><td>${relEsc(s.ensaio)}</td><td>${relEsc(s.lote)}</td><td class="n">${relNum(s.r, 2)} ${relEsc(s.unidade)}</td><td class="n">${relNum(s.mediana, 2)}</td><td>${relEsc(s.motivo)}</td></tr>`).join('') + '</tbody></table>' : '<p>Nenhum resultado suspeito no mês.</p>';
+
+  // 6. detalhamento
+  h += `<h2>6. Detalhamento por família</h2>`;
+  [...new Set(d.grupos.map((g) => g.familia))].forEach((f) => {
+    const gs = d.grupos.filter((g) => g.familia === f && (g.mes.n || g.janela.n));
+    h += `<details><summary>${relEsc(f)} (${gs.length} produto/ensaio)</summary><div class="tw"><table class="rg-tab"><thead>${REL_CAB(false)}</thead><tbody>${gs.map((g) => relLinhaGrupo(g, false)).join('')}</tbody></table></div></details>`;
+  });
+
+  // 7. comentário
+  h += `<h2>7. Comentários do responsável de CQ</h2>`;
+  h += edit ? `<textarea class="rg-com" id="rel_comentario" placeholder="Observações gerais do mês (opcional)">${relEsc(rel.comentario)}</textarea>` : `<p style="white-space:pre-wrap">${relEsc(rel.comentario) || '—'}</p>`;
+
+  // 8. método
+  h += `<h2>8. Método e referências</h2><ul class="rg-ref">` +
+    `<li>Unidade de análise: família × produto × ensaio/idade; mês = mês da moldagem; comparação com o acumulado dos 6 meses anteriores. Resultados de CQ sincronizados do laboratório (BV QC Master).</li>` +
+    `<li>Estatística descritiva, % conforme; índices de capacidade Cp/Cpk (n ≥ 8); resistência característica estimada f<sub>k</sub> = média − 1,645·s; diferença de médias pelo teste t de Welch (|t| ≥ 2).</li>` +
+    `<li>Gráfico de controle de valores individuais (Shewhart), σ = MR̄/1,128 da janela; regras: ponto além de 3σ, 7 pontos seguidos do mesmo lado, 6 pontos seguidos subindo/descendo.</li>` +
+    `<li>Referências: Costa, A. F. B.; Epprecht, E. K.; Carpinetti, L. C. R. <i>Controle Estatístico de Qualidade</i> (Atlas); Ribeiro, J. L. D. <i>Estatística Industrial</i>; "Aplicação do método da soma cumulativa (CUSUM) no controle da resistência à compressão do concreto"; "Estudo da precisão do ensaio de resistência à compressão"; Ribeiro, D. V. <i>Princípios da Ciência dos Materiais Cimentícios</i> (adições e redução de cimento); ABNT NBR 13279, NBR 13281-1/-2:2023, NBR 14992, NBR 17211-1:2024.</li>` +
+    `<li>Planos 5W2H: rascunho gerado por IA (Anthropic Claude) apenas com os números deste relatório e revisado pelo responsável de CQ antes da publicação.</li></ul>`;
+  h += `</div>`;
+  if (edit) h += `<div class="rg-acoes"><button class="rg-btn2" onclick="relSalvar(false)">&#128190; Salvar rascunho</button><button class="btn-import" onclick="relSalvar(true)">&#10004; Publicar</button><span class="rg-meta" style="align-self:center">Salve antes de sair — edições não salvas se perdem ao recarregar a página.</span></div>`;
+  alvo.innerHTML = h;
+}
+
 </script>
 
 <!-- ══ MODAL MAPEAMENTO PRODUTO→FAMÍLIA ══ -->
