@@ -247,6 +247,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
 .rg-tag.pub{background:rgba(39,174,96,.18);color:var(--grn2)}
 .rg-tag.ras{background:rgba(230,126,34,.18);color:var(--amb)}
 .rg-tag.blq{background:rgba(255,255,255,.06);color:var(--gy)}
+#relEditando{gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0}
 .rg-mot{color:var(--gy);font-size:11.5px}
 .rg-doc{background:var(--card);border:1px solid var(--b1);border-radius:9px;padding:22px 26px}
 .rg-doc h1{font-size:19px;font-weight:700;margin-bottom:4px}
@@ -2254,6 +2255,20 @@ async function relApi(corpo) {
   if (!r.ok) { const err = new Error((j && j.erro) || ('Erro ' + r.status)); err.status = r.status; throw err; }
   return j;
 }
+// Ao abrir/gerar um rascunho: recolhe a lista de meses e leva a tela até o relatório
+function relModoEdicao(mes) {
+  const lista = document.getElementById('relMeses');
+  let barra = document.getElementById('relEditando');
+  if (!barra) { barra = document.createElement('div'); barra.id = 'relEditando'; barra.className = 'rg-row'; lista.parentNode.insertBefore(barra, lista); }
+  barra.style.display = 'flex';
+  barra.innerHTML = `<span class="rg-tag ras">editando</span><b>Rascunho de ${relMesExt(mes)}</b><span class="rg-meta">— edite os planos 5W2H e o comentário abaixo; depois Salvar ou Publicar (no fim da página).</span><button class="rg-lnk" onclick="relVerLista()">voltar à lista de meses</button>`;
+  lista.style.display = 'none';
+  setTimeout(() => { const d = document.getElementById('relDoc'); if (d && d.scrollIntoView) d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+}
+function relVerLista() {
+  const barra = document.getElementById('relEditando'); if (barra) barra.style.display = 'none';
+  document.getElementById('relMeses').style.display = 'block';
+}
 function relMsg(t, cor) { const el = document.getElementById('relMsg'); if (el) { el.textContent = t || ''; el.style.color = cor || ''; } }
 
 async function relInit() {
@@ -2297,6 +2312,7 @@ function relSairRevisor() {
   document.getElementById('relSenha').value = '';
   document.getElementById('relLogin').style.display = 'block';
   document.getElementById('relMeses').style.display = 'none';
+  const barra = document.getElementById('relEditando'); if (barra) barra.style.display = 'none';
   document.getElementById('relRevisor').style.display = 'none';
   if (REL_ATUAL && REL_ATUAL.modo === 'rascunho') { REL_ATUAL = null; relCarregarPublicados(); }
 }
@@ -2311,6 +2327,7 @@ async function relListarMeses() {
   const box = document.getElementById('relMeses');
   box.innerHTML = '<div class="rg-sub">Carregando…</div>';
   box.style.display = 'block';
+  const barra = document.getElementById('relEditando'); if (barra) barra.style.display = 'none';
   try {
     const j = await relApi({ acao: 'revisor_meses', senha: REL_SENHA });
     document.getElementById('relLogin').style.display = 'none';
@@ -2339,7 +2356,8 @@ async function relGerar(mes, jaTem) {
     REL_ATUAL = { modo: 'rascunho', mes, rel: j.rascunho };
     relRender();
     relMsg('Rascunho gerado. Revise os planos, salve e publique.', 'var(--grn2)');
-    relListarMeses();
+    await relListarMeses();
+    relModoEdicao(mes);
   } catch (e) { relMsg(e.message, 'var(--red2)'); }
 }
 async function relAbrirRascunho(mes) {
@@ -2349,6 +2367,7 @@ async function relAbrirRascunho(mes) {
     REL_ATUAL = { modo: 'rascunho', mes, rel: j.rascunho };
     relRender();
     relMsg('');
+    relModoEdicao(mes);
   } catch (e) { relMsg(e.message, 'var(--red2)'); }
 }
 const REL_CAMPOS = [['o_que', 'O quê'], ['por_que', 'Por quê'], ['onde', 'Onde'], ['quando', 'Quando'], ['quem', 'Quem'], ['como', 'Como'], ['quanto', 'Quanto']];
@@ -2370,8 +2389,10 @@ async function relSalvar(publicar) {
     await relApi({ acao: publicar ? 'publicar' : 'salvar', mes: REL_ATUAL.mes, senha: REL_SENHA, planos: ed.planos, comentario: ed.comentario });
     REL_ATUAL.rel.planos = ed.planos; REL_ATUAL.rel.comentario = ed.comentario;
     relMsg(publicar ? 'Publicado.' : 'Rascunho salvo.', 'var(--grn2)');
-    relListarMeses();
-    if (publicar) await relCarregarPublicados(REL_ATUAL.mes);
+    const mesAtual = REL_ATUAL.mes;
+    await relListarMeses();
+    if (publicar) { relVerLista(); await relCarregarPublicados(mesAtual); }
+    else relModoEdicao(mesAtual);
   } catch (e) { relMsg(e.message, 'var(--red2)'); }
 }
 function relAddPlano() {
