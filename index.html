@@ -324,12 +324,10 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
       <span id="sbStatusTxt">Carregando...</span>
     </div>
     <div class="hdr-date" id="hDate"></div>
-    <button class="btn-reset" onclick="resetData()">⟳ Restaurar dados</button>
   </div>
 </header>
 <nav class="nav">
   <button class="nb on" onclick="setPage('dash',this)">&#9632; Dashboard</button>
-  <button class="nb" onclick="setPage('form',this)">&#43; Inserir Ensaio</button>
   <button class="nb" onclick="setPage('dados',this)">&#9776; Base de Dados</button>
   <button class="nb" onclick="setPage('ind',this)">&#128202; Indicadores</button>
   <button class="nb" onclick="setPage('rel',this)">&#128196; Relatório gerencial</button>
@@ -630,7 +628,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
     <div class="fg"><div class="fl">Mês</div><input class="fi" type="month" id="indMes" style="min-width:150px"></div>
     <div class="fg"><div class="fl">Lotes Produzidos</div><input class="fi" type="number" id="indLotes" min="0" placeholder="0" style="width:140px"></div>
     <div class="fg"><div class="fl">Ensaios Realizados</div><input class="fi" type="number" id="indEnsaios" min="0" placeholder="0" style="width:140px"></div>
-    <button class="btn-import" style="margin-top:19px" onclick="pwdAsk('indAdd',null,'Adicionar Indicador','Digite a senha para adicionar este mês')">&#10004; Adicionar</button>
+    <button class="btn-import" style="margin-top:19px" onclick="pwdAsk('indAdd',null,'Adicionar Indicador','Digite a senha do revisor para adicionar este mês')">&#10004; Adicionar</button>
     <span class="import-msg" id="indMsg" style="margin-top:19px"></span>
   </div>
 
@@ -813,24 +811,18 @@ const saveLocalStorage = () => {
 };
 
 // ── Indicadores: salvar/carregar da nuvem (tabela config, chave própria) ──
+// Indicadores: gravados pela função relatorio-gerencial, com a senha do revisor conferida no
+// servidor (R1, 29/09/2026). Devolve {ok, erro}.
 async function saveIndicadoresSupabase() {
-  if (SB_MODE !== 'online') return;
+  if (SB_MODE !== 'online') return { ok: false, erro: 'Sem conexão com a nuvem — nada foi gravado.' };
+  if (!REL_SENHA) return { ok: false, erro: 'Informe a senha do revisor.' };
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/config`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                 'Content-Type': 'application/json',
-                 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ chave: 'indicadores_extras', valor: JSON.stringify(INDICADORES_EXTRAS) })
-    });
-    await fetch(`${SUPABASE_URL}/rest/v1/config`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                 'Content-Type': 'application/json',
-                 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ chave: 'indicadores_ocultos', valor: JSON.stringify([...INDICADORES_MESES_OCULTOS]) })
-    });
-  } catch(err) { console.error('[BV] Erro ao salvar indicadores:', err); }
+    await relApi({ acao: 'salvar_indicadores', senha: REL_SENHA, indicadores_extras: INDICADORES_EXTRAS, indicadores_ocultos: [...INDICADORES_MESES_OCULTOS] });
+    return { ok: true };
+  } catch (e) {
+    if (e.status === 401) REL_SENHA = null;
+    return { ok: false, erro: e.message || 'Falha ao gravar' };
+  }
 }
 async function loadIndicadoresSupabase() {
   if (SB_MODE !== 'online') return;
@@ -847,96 +839,11 @@ async function loadIndicadoresSupabase() {
 }
 
 // ── Salvar no Supabase ──
+// R1 (29/09/2026): gravação direta desativada. Esta rotina apagava a tabela inteira de CQ e
+// regravava com o que estava no navegador, usando a chave pública. Os ensaios vêm só do sync
+// diário do Laboratório (chave secreta, no lab01); a chave pública agora só LÊ o banco.
 async function saveToSupabase(registros, mesesSync) {
-  if (SB_MODE !== 'online') return;
-  try {
-    // 1. Apagar registros existentes
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=gte.0`,
-      { method: 'DELETE',
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' } }
-    );
-
-    // 2. Inserir em lotes de 200
-    for (let i = 0; i < registros.length; i += 200) {
-      const lote = registros.slice(i, i + 200).map((r, j) => ({
-        id:        i + j,
-        mes:       r.mes  || '',
-        ml:        r.ml   || '',
-        p:         r.p    || '',
-        l:         r.l    || '',
-        id_idade:  r.id   || 28,
-        t:         r.t    || 'Compressão (MPa)',
-        mn:        r.mn   || 0,
-        mx:        r.mx   || 0,
-        r:         r.r    || 0,
-        ok:        !!r.ok,
-        reg:       r.reg  || null,
-        _planilha: !!r._planilha,
-        _manual:   !!r._manual
-      }));
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`,
-        { method: 'POST',
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                     'Content-Type': 'application/json',
-                     'Prefer': 'resolution=merge-duplicates,return=minimal' },
-          body: JSON.stringify(lote) }
-      );
-      if (!res.ok) console.error('[BV] Insert lote', i, ':', res.status, await res.text());
-    }
-
-    // 3. Salvar meses_sync
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/config`,
-      { method: 'POST',
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                   'Content-Type': 'application/json',
-                   'Prefer': 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify({ chave: 'meses_sync', valor: JSON.stringify([...mesesSync]) }) }
-    );
-
-    // 3b. Salvar lotes_excluidos
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/config`,
-      { method: 'POST',
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                   'Content-Type': 'application/json',
-                   'Prefer': 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify({ chave: 'lotes_excluidos', valor: JSON.stringify([...LOTES_EXCLUIDOS]) }) }
-    );
-
-    // 3c. Salvar mapa produto→família na nuvem (restaura fam em outros devices/browsers)
-    if (Object.keys(PROD_FAM_MAP).length > 0) {
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/config`,
-        { method: 'POST',
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                     'Content-Type': 'application/json',
-                     'Prefer': 'resolution=merge-duplicates,return=minimal' },
-          body: JSON.stringify({ chave: 'prod_fam_map', valor: JSON.stringify(PROD_FAM_MAP) }) }
-      );
-    }
-
-    // 4. Salvar timestamp da última sincronização (para qualquer visitante ver, não só quem sincronizou)
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/config`,
-      { method: 'POST',
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-                   'Content-Type': 'application/json',
-                   'Prefer': 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify({ chave: 'ultima_sync', valor: JSON.stringify({ ts: new Date().toISOString(), n: registros.length }) }) }
-    );
-
-    console.log('[BV] Salvo no Supabase:', registros.length, 'registros');
-    const badgeEl = document.getElementById('cloudBadge');
-    if (badgeEl) badgeEl.innerHTML = '<span style="color:#2ecc71">✔ Salvo na nuvem</span>';
-
-  } catch(err) {
-    console.error('[BV] Supabase save error:', err);
-    const badgeEl = document.getElementById('cloudBadge');
-    if (badgeEl) badgeEl.innerHTML = '<span style="color:#e74c3c">⚠ Erro na nuvem</span>';
-  }
+  console.info('[BV] gravação direta no banco desativada — os ensaios vêm do sync do Laboratório');
 }
 // ── Status visual de sincronização (usado por loadFromSupabase) ──
 function showSyncStatus(text) {
@@ -1843,9 +1750,8 @@ function rTable(){
   const extrasStart = DATA.length - EXTRAS.length;
   document.getElementById('tBody').innerHTML=rows.map(d=>{
     const isExtra = d._idx >= extrasStart; // só extras podem ser excluídos
-    const delBtn = isExtra
-      ? `<button class="btn-del" onclick="askDelete(${d._idx})" title="Excluir este ensaio">✕</button>`
-      : `<span title="Registro original — não pode ser excluído" style="color:var(--gy3);font-size:11px;padding:2px 7px">🔒</span>`;
+    // R1 (29/09/2026): ensaios não são mais excluídos pelo dashboard — vêm do Laboratório (sync diário)
+    const delBtn = `<span title="Os ensaios vêm do app do Laboratório (sincronização diária) — corrija lá" style="color:var(--gy3);font-size:11px;padding:2px 7px">🔒</span>`;
     return `<tr>
       <td style="color:var(--gy3);font-size:11px">${d.reg||'—'}</td>
       <td>${d.ml}</td><td>${d.p}</td><td>${d.l}</td>
@@ -2053,7 +1959,7 @@ function renderIndicadores() {
   });
 }
 
-function doAddIndicador() {
+async function doAddIndicador() {
   const mesInput = document.getElementById('indMes').value; // formato YYYY-MM
   const lotes = parseInt(document.getElementById('indLotes').value);
   const ensaios = parseInt(document.getElementById('indEnsaios').value);
@@ -2063,8 +1969,10 @@ function doAddIndicador() {
   const jaExiste = [...INDICADORES_SEED, ...INDICADORES_EXTRAS].some(r => r.mes === mesInput);
   if (jaExiste) { msg.className='import-msg er'; msg.textContent='Esse mês já tem dado lançado.'; return; }
   INDICADORES_EXTRAS.push({mes: mesInput, lotes, ensaios});
+  msg.className='import-msg'; msg.textContent='Gravando...';
+  const r = await saveIndicadoresSupabase();
+  if (!r.ok) { INDICADORES_EXTRAS = INDICADORES_EXTRAS.filter(x => x.mes !== mesInput); msg.className='import-msg er'; msg.textContent='❌ ' + r.erro; renderIndicadores(); return; }
   saveLocalStorage();
-  saveIndicadoresSupabase();
   renderIndicadores();
   document.getElementById('indMes').value='';
   document.getElementById('indLotes').value='';
@@ -2074,20 +1982,27 @@ function doAddIndicador() {
 }
 
 function askDeleteIndicador(mes) {
-  pwdAsk('indDel', mes, 'Excluir Indicador', 'Digite a senha para excluir este mês');
+  pwdAsk('indDel', mes, 'Excluir Indicador', 'Digite a senha do revisor para excluir este mês');
 }
-function doDeleteIndicadorConfirmed(mes) {
+async function doDeleteIndicadorConfirmed(mes) {
+  const antes = INDICADORES_EXTRAS;
   INDICADORES_EXTRAS = INDICADORES_EXTRAS.filter(r => r.mes !== mes);
+  const r = await saveIndicadoresSupabase();
+  if (!r.ok) { INDICADORES_EXTRAS = antes; alert('Não foi possível excluir: ' + r.erro); renderIndicadores(); return; }
   saveLocalStorage();
-  saveIndicadoresSupabase();
   renderIndicadores();
 }
 
 function toggleMesGrafico(mes) {
-  if (INDICADORES_MESES_OCULTOS.has(mes)) INDICADORES_MESES_OCULTOS.delete(mes);
-  else INDICADORES_MESES_OCULTOS.add(mes);
+  if (!REL_SENHA) { renderIndicadores(); pwdAsk('indToggle', mes, 'Mostrar/ocultar mês', 'Digite a senha do revisor para alterar o gráfico'); return; }
+  toggleMesGraficoConfirmed(mes);
+}
+async function toggleMesGraficoConfirmed(mes) {
+  const estava = INDICADORES_MESES_OCULTOS.has(mes);
+  if (estava) INDICADORES_MESES_OCULTOS.delete(mes); else INDICADORES_MESES_OCULTOS.add(mes);
+  const r = await saveIndicadoresSupabase();
+  if (!r.ok) { if (estava) INDICADORES_MESES_OCULTOS.add(mes); else INDICADORES_MESES_OCULTOS.delete(mes); alert('Não foi possível alterar: ' + r.erro); renderIndicadores(); return; }
   saveLocalStorage();
-  saveIndicadoresSupabase();
   renderIndicadores();
 }
 
@@ -2132,8 +2047,8 @@ function confirmarConflito() {
   pendingConflito = null;
 }
 
-// ══ BLOQUEIO DE ACESSO (SENHA DE VISUALIZAÇÃO — diferente da senha de sincronização) ══
-const VIEW_PWD_HASH = '925f45f995e5c5ccda3b3644f09b43ab6ed8eb0c9065c4ee46835febd4ac11df'; // senha temporária: AcessoBV2026 — TROQUE assim que possível
+// ══ BLOQUEIO DE TELA (senha de visualização — conferida só no navegador; não protege os dados) ══
+const VIEW_PWD_HASH = '925f45f995e5c5ccda3b3644f09b43ab6ed8eb0c9065c4ee46835febd4ac11df';
 
 async function checkViewAccess() {
   if (sessionStorage.getItem('bv_view_ok') === '1') {
@@ -2163,8 +2078,8 @@ async function viewPwdConfirm() {
 }
 
 // ══ MODAL DE SENHA ══
-const PWD_HASH = 'f9d0e4f3bd3cc1f4ebe3f8a3a60e7d3495487491f922f2b74f3f148fc45c12ab'; // senha: BV2026 — altere aqui se precisar trocar
-// Trocar pela sua senha: use SHA-256 da senha desejada
+// R1 (29/09/2026): a senha digitada aqui é a do revisor e é conferida no SERVIDOR (função
+// relatorio-gerencial) a cada gravação — não existe mais senha guardada no código.
 
 async function hashPwd(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -2194,24 +2109,14 @@ function pwdToggle() {
 async function pwdConfirm() {
   const val = document.getElementById('pwdInput').value;
   if (!val) { document.getElementById('pwdErr').textContent = 'Digite a senha.'; return; }
-  const hash = await hashPwd(val);
-  if (hash !== PWD_HASH) {
-    document.getElementById('pwdErr').textContent = '❌ Senha incorreta.';
-    document.getElementById('pwdInput').value = '';
-    document.getElementById('pwdInput').focus();
-    return;
-  }
-  // Senha correta — fechar e executar ação
+  // A senha é conferida pelo servidor na gravação; se estiver errada, a ação avisa e desfaz.
   document.getElementById('pwdModal').style.display = 'none';
-  const {action, payload} = pwdCallback;
+  const {action, payload} = pwdCallback || {};
   pwdCallback = null;
-  if (action === 'salvar')    salvar();
-  if (action === 'batch')     saveBatch();
-  if (action === 'import')    doImport();
-  if (action === 'reset')     doResetConfirmed();
-  if (action === 'delete')    doDeleteConfirmed(payload);
+  REL_SENHA = val;
   if (action === 'indAdd')    doAddIndicador();
   if (action === 'indDel')    doDeleteIndicadorConfirmed(payload);
+  if (action === 'indToggle') toggleMesGraficoConfirmed(payload);
 }
 
 function pwdCancel() {
