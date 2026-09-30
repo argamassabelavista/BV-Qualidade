@@ -167,6 +167,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
 .ft{background:#060606;border-top:1px solid var(--b1);padding:9px 22px;font-size:10px;color:var(--gy3);text-align:center}
 @media(max-width:1100px){.kpis{grid-template-columns:repeat(4,1fr)}.kpis.k6{grid-template-columns:repeat(3,1fr)}.g3{grid-template-columns:1fr 1fr}}
 @media(max-width:750px){.kpis{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}.fg2{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){#hUserEmail,.hdr-date{display:none}#hUser{gap:6px}#hUser button{padding:3px 7px!important}.hdr-r{flex-shrink:0}}
 @media(max-width:480px){.kpis{grid-template-columns:1fr}.fg2{grid-template-columns:1fr}.fg2 .fg.s2{grid-column:span 1}}
 
 /* ── IMPORT PANEL ── */
@@ -324,6 +325,11 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
       <span id="sbStatusTxt">Carregando...</span>
     </div>
     <div class="hdr-date" id="hDate"></div>
+    <div id="hUser" style="display:none;align-items:center;gap:8px;font-size:11px;color:var(--gy3)">
+      <span id="hUserEmail"></span>
+      <button onclick="trocarSenhaAbrir()" style="background:transparent;border:1px solid var(--b2);color:var(--gy);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">Trocar senha</button>
+      <button onclick="sairDoPainel()" style="background:transparent;border:1px solid var(--b2);color:var(--gy);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">Sair</button>
+    </div>
   </div>
 </header>
 <nav class="nav">
@@ -645,15 +651,37 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <div class="pwd-box">
     <div class="pwd-icon">🔐</div>
     <div class="pwd-title">Acesso Restrito</div>
-    <div class="pwd-sub">Este painel contém dados sensíveis de ensaio.<br>Digite a senha de acesso para continuar.</div>
+    <div class="pwd-sub">Este painel contém dados sensíveis de ensaio.<br>Entre com o seu e-mail e a sua senha.</div>
+    <div class="pwd-input-wrap" style="margin-bottom:10px">
+      <input class="pwd-input" type="email" id="viewEmailInput" placeholder="e-mail" style="letter-spacing:0;padding-right:14px"
+             onkeydown="if(event.key==='Enter')document.getElementById('viewPwdInput').focus()" autocomplete="username">
+    </div>
     <div class="pwd-input-wrap">
-      <input class="pwd-input" type="password" id="viewPwdInput" placeholder="••••••••"
-             onkeydown="if(event.key==='Enter')viewPwdConfirm()" autocomplete="off">
+      <input class="pwd-input" type="password" id="viewPwdInput" placeholder="senha"
+             onkeydown="if(event.key==='Enter')viewPwdConfirm()" autocomplete="current-password">
       <button class="pwd-toggle" onclick="viewPwdToggle()" tabindex="-1">👁</button>
     </div>
     <div class="pwd-err" id="viewPwdErr"></div>
     <div class="pwd-actions">
-      <button class="pwd-btn-ok" onclick="viewPwdConfirm()" style="flex:1">Entrar</button>
+      <button class="pwd-btn-ok" id="viewPwdBtn" onclick="viewPwdConfirm()" style="flex:1">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trocar a própria senha (R1 etapa 2) -->
+<div class="pwd-overlay" id="trocaSenha" style="display:none;z-index:9998">
+  <div class="pwd-box">
+    <div class="pwd-icon">🔑</div>
+    <div class="pwd-title">Trocar senha</div>
+    <div class="pwd-sub" id="tsEmail"></div>
+    <div class="pwd-input-wrap" style="margin-bottom:10px"><input class="pwd-input" type="password" id="tsAtual" placeholder="senha atual" style="letter-spacing:0" autocomplete="current-password"></div>
+    <div class="pwd-input-wrap" style="margin-bottom:10px"><input class="pwd-input" type="password" id="tsNova" placeholder="nova senha (mín. 8 caracteres)" style="letter-spacing:0" autocomplete="new-password"></div>
+    <div class="pwd-input-wrap"><input class="pwd-input" type="password" id="tsConf" placeholder="repita a nova senha" style="letter-spacing:0" autocomplete="new-password"
+           onkeydown="if(event.key==='Enter')trocarSenhaConfirmar()"></div>
+    <div class="pwd-err" id="tsErr"></div>
+    <div class="pwd-actions">
+      <button class="pwd-btn-cancel" onclick="trocarSenhaFechar()">Cancelar</button>
+      <button class="pwd-btn-ok" id="tsBtn" onclick="trocarSenhaConfirmar()">Trocar</button>
     </div>
   </div>
 </div>
@@ -728,6 +756,115 @@ const sbHeaders = () => ({
   'Authorization': 'Bearer ' + SUPABASE_KEY,
   'Prefer': 'return=minimal'
 });
+
+// ══ LOGIN (R1 etapa 2, 30/09/2026) ══
+// Os dados só são entregues a quem está logado (Supabase Auth, e-mail + senha de cada pessoa).
+// A chave publicável acima só identifica o projeto — sozinha não lê mais nada.
+const SESSAO_KEY = 'bv_sessao_sb';
+let SESSAO = null;
+try { SESSAO = JSON.parse(localStorage.getItem(SESSAO_KEY) || 'null'); } catch (e) { SESSAO = null; }
+function gravarSessao(s) {
+  SESSAO = s;
+  try { if (s) localStorage.setItem(SESSAO_KEY, JSON.stringify(s)); else localStorage.removeItem(SESSAO_KEY); } catch (e) {}
+}
+async function authToken(corpo, grant) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=${grant}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify(corpo) });
+  let j = {}; try { j = await r.json(); } catch (e) { j = {}; }
+  if (!r.ok || !j.access_token) { const e = new Error(j.error_description || j.msg || j.message || ('HTTP ' + r.status)); e.status = r.status; e.code = j.error_code || j.error; throw e; }
+  return { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + (j.expires_in || 3600) * 1000, email: (j.user && j.user.email) || '' };
+}
+let _renovando = null;
+async function tokenValido() {
+  if (!SESSAO || !SESSAO.access_token) return null;
+  if (Date.now() < (SESSAO.expires_at || 0) - 60000) return SESSAO.access_token;
+  if (!_renovando) _renovando = (async () => {
+    try { const s = await authToken({ refresh_token: SESSAO.refresh_token }, 'refresh_token'); if (!s.email) s.email = SESSAO.email; gravarSessao(s); return s.access_token; }
+    catch (e) { if (e.status >= 400 && e.status < 500) sessaoExpirada(); return null; }
+    finally { setTimeout(() => { _renovando = null; }, 0); }
+  })();
+  return _renovando;
+}
+// GET autenticado no Supabase. Sem login válido → abre a tela de login e lança erro "semLogin".
+async function sbGet(url) {
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    const tk = await tokenValido();
+    if (!tk) { const e = new Error('sem login'); e.semLogin = true; throw e; }
+    const r = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tk } });
+    if (r.status !== 401 && r.status !== 403) return r;
+    if (SESSAO) SESSAO.expires_at = 0;            // token recusado: renova uma vez e tenta de novo
+  }
+  sessaoExpirada(); const e = new Error('sem login'); e.semLogin = true; throw e;
+}
+function limparCacheDados() {
+  ['bv_extras', 'bv_meses_sync', 'bv_lotes_excluidos', 'bv_indicadores_extras', 'bv_indicadores_ocultos', 'bv_prod_fam_map', 'bv_last_online_sync']
+    .forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+}
+function mostrarUsuario() {
+  const el = document.getElementById('hUser'); if (!el) return;
+  if (SESSAO && SESSAO.email) { document.getElementById('hUserEmail').textContent = SESSAO.email; el.style.display = 'flex'; }
+  else el.style.display = 'none';
+}
+function mostrarLogin(msg) {
+  const lk = document.getElementById('viewLock'); if (!lk) return;
+  lk.style.display = 'flex';
+  document.getElementById('viewPwdErr').textContent = msg || '';
+  setTimeout(() => { const em = document.getElementById('viewEmailInput'); (em && !em.value ? em : document.getElementById('viewPwdInput')).focus(); }, 50);
+}
+function sessaoExpirada() {
+  gravarSessao(null); limparCacheDados();
+  DATA = []; EXTRAS = [];
+  try { render(); } catch (e) {}
+  mostrarUsuario();
+  mostrarLogin('Sua sessão expirou. Entre de novo.');
+}
+// Trocar a própria senha: confere a senha atual no Supabase e grava a nova (PUT /auth/v1/user).
+function trocarSenhaAbrir() {
+  if (!SESSAO) return;
+  ['tsAtual', 'tsNova', 'tsConf'].forEach((id) => { document.getElementById(id).value = ''; });
+  document.getElementById('tsErr').textContent = '';
+  document.getElementById('tsEmail').textContent = SESSAO.email || '';
+  document.getElementById('trocaSenha').style.display = 'flex';
+  setTimeout(() => document.getElementById('tsAtual').focus(), 50);
+}
+function trocarSenhaFechar() {
+  ['tsAtual', 'tsNova', 'tsConf'].forEach((id) => { document.getElementById(id).value = ''; });
+  document.getElementById('trocaSenha').style.display = 'none';
+}
+async function trocarSenhaConfirmar() {
+  const atual = document.getElementById('tsAtual').value, nova = document.getElementById('tsNova').value, conf = document.getElementById('tsConf').value;
+  const err = document.getElementById('tsErr'), btn = document.getElementById('tsBtn');
+  if (!atual || !nova || !conf) { err.textContent = 'Preencha os três campos.'; return; }
+  if (nova.length < 8) { err.textContent = 'A nova senha precisa ter pelo menos 8 caracteres.'; return; }
+  if (nova !== conf) { err.textContent = 'A confirmação não bate com a nova senha.'; return; }
+  if (nova === atual) { err.textContent = 'A nova senha precisa ser diferente da atual.'; return; }
+  if (!SESSAO || !SESSAO.email) { trocarSenhaFechar(); sessaoExpirada(); return; }
+  btn.disabled = true; err.textContent = 'Conferindo...';
+  try {
+    let s;
+    try { s = await authToken({ email: SESSAO.email, password: atual }, 'password'); }
+    catch (e) { err.textContent = (e.status === 400 || e.status === 401) ? '❌ Senha atual incorreta.' : (e.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos.' : 'Não foi possível conferir agora.'); document.getElementById('tsAtual').value = ''; return; }
+    gravarSessao(s);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { method: 'PUT', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + s.access_token }, body: JSON.stringify({ password: nova }) });
+    if (!r.ok) {
+      let j = {}; try { j = await r.json(); } catch (e) {}
+      const cod = j.error_code || j.code || '';
+      err.textContent = cod === 'same_password' ? 'A nova senha precisa ser diferente da atual.'
+        : cod === 'weak_password' ? 'Senha fraca: use letras e números, com pelo menos 8 caracteres.'
+        : 'Não foi possível trocar a senha (' + (j.msg || j.message || ('HTTP ' + r.status)) + ').';
+      return;
+    }
+    trocarSenhaFechar();
+    alert('Senha trocada. Use a nova senha no próximo acesso.');
+  } finally { btn.disabled = false; }
+}
+
+async function sairDoPainel() {
+  const tk = SESSAO && SESSAO.access_token;
+  gravarSessao(null); limparCacheDados();
+  try { if (tk) await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tk } }); } catch (e) {}
+  location.reload();
+}
 
 // Indicador de modo: 'online' | 'offline'
 let SB_MODE = (SUPABASE_URL !== 'SUPABASE_URL_AQUI') ? 'online' : 'offline';
@@ -827,8 +964,7 @@ async function saveIndicadoresSupabase() {
 async function loadIndicadoresSupabase() {
   if (SB_MODE !== 'online') return;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/config?chave=in.(indicadores_extras,indicadores_ocultos)&select=chave,valor`,
-      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+    const res = await sbGet(`${SUPABASE_URL}/rest/v1/config?chave=in.(indicadores_extras,indicadores_ocultos)&select=chave,valor`);
     const cfg = await res.json();
     const cfgExtras = cfg.find(c => c.chave === 'indicadores_extras');
     const cfgOcultos = cfg.find(c => c.chave === 'indicadores_ocultos');
@@ -902,9 +1038,8 @@ async function loadFromSupabase() {
     //    avança pelo que veio e para no bloco vazio.
     const rows = [];
     for (let offset = 0, voltas = 0; voltas < 1000; voltas++) {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=*&order=mes.asc,id.asc&limit=1000&offset=${offset}`,
-        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+      const res = await sbGet(
+        `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=*&order=mes.asc,id.asc&limit=1000&offset=${offset}`
       );
       if (!res.ok) throw new Error('Ensaios HTTP ' + res.status);
       const bloco = await res.json();
@@ -918,9 +1053,8 @@ async function loadFromSupabase() {
     //    carregados do localStorage (passo executado em loadFromLocalStorage no boot).
     let cfgUltima = null;
     try {
-      const res2 = await fetch(
-        `${SUPABASE_URL}/rest/v1/config?chave=in.(meses_sync,ultima_sync,lotes_excluidos,prod_fam_map)&select=chave,valor`,
-        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+      const res2 = await sbGet(
+        `${SUPABASE_URL}/rest/v1/config?chave=in.(meses_sync,ultima_sync,lotes_excluidos,prod_fam_map)&select=chave,valor`
       );
       if (res2.ok) {
         const cfg = await res2.json();
@@ -987,6 +1121,7 @@ async function loadFromSupabase() {
     hideSyncStatus();
     initSel(); render();
   } catch(err) {
+    if (err && err.semLogin) { hideSyncStatus(); return; }   // sem login: a tela de login já está aberta
     console.warn('[BV] Supabase load error — usando cache local:', err.message);
     loadFromLocalStorage();
     hideSyncStatus();
@@ -1002,7 +1137,7 @@ const saveExtras = () => {
 };
 
 // Carregar dados inicialmente
-loadFromLocalStorage(); // imediato (cache)
+if (SESSAO) loadFromLocalStorage(); // imediato (cache) — só para quem já entrou neste navegador
 
 // ══ HELPERS ══
 // Status detalhado: ok | low (abaixo do mín) | high (acima do máx)
@@ -2055,15 +2190,12 @@ function confirmarConflito() {
   pendingConflito = null;
 }
 
-// ══ BLOQUEIO DE TELA (senha de visualização — conferida só no navegador; não protege os dados) ══
-const VIEW_PWD_HASH = '925f45f995e5c5ccda3b3644f09b43ab6ed8eb0c9065c4ee46835febd4ac11df';
-
+// ══ TELA DE LOGIN (R1 etapa 2) — confere e-mail e senha no Supabase Auth ══
 async function checkViewAccess() {
-  if (sessionStorage.getItem('bv_view_ok') === '1') {
-    document.getElementById('viewLock').style.display = 'none';
-  } else {
-    setTimeout(() => document.getElementById('viewPwdInput').focus(), 50);
-  }
+  try { sessionStorage.removeItem('bv_view_ok'); } catch (e) {}   // chave da senha antiga
+  if (SESSAO && await tokenValido()) { document.getElementById('viewLock').style.display = 'none'; mostrarUsuario(); return true; }
+  mostrarLogin();
+  return false;
 }
 
 function viewPwdToggle() {
@@ -2072,17 +2204,25 @@ function viewPwdToggle() {
 }
 
 async function viewPwdConfirm() {
+  const email = document.getElementById('viewEmailInput').value.trim();
   const val = document.getElementById('viewPwdInput').value;
-  if (!val) { document.getElementById('viewPwdErr').textContent = 'Digite a senha.'; return; }
-  const hash = await hashPwd(val);
-  if (hash !== VIEW_PWD_HASH) {
-    document.getElementById('viewPwdErr').textContent = '❌ Senha incorreta.';
+  const err = document.getElementById('viewPwdErr'), btn = document.getElementById('viewPwdBtn');
+  if (!email || !val) { err.textContent = 'Digite o e-mail e a senha.'; return; }
+  btn.disabled = true; err.textContent = 'Entrando...';
+  try {
+    const s = await authToken({ email, password: val }, 'password');
+    gravarSessao(s);
+    document.getElementById('viewPwdInput').value = '';
+    err.textContent = '';
+    document.getElementById('viewLock').style.display = 'none';
+    mostrarUsuario();
+    loadFromSupabase(); loadIndicadoresSupabase();
+  } catch (e) {
+    err.textContent = (e.status === 400 || e.status === 401) ? '❌ E-mail ou senha incorretos.'
+      : (e.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos.' : 'Não foi possível entrar agora (' + (e.message || 'erro') + ').');
     document.getElementById('viewPwdInput').value = '';
     document.getElementById('viewPwdInput').focus();
-    return;
-  }
-  sessionStorage.setItem('bv_view_ok', '1');
-  document.getElementById('viewLock').style.display = 'none';
+  } finally { btn.disabled = false; }
 }
 
 // ══ MODAL DE SENHA ══
@@ -2094,7 +2234,7 @@ async function hashPwd(str) {
   return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-checkViewAccess();
+// (a checagem de acesso roda no fim do script, antes de carregar os dados)
 
 let pwdCallback = null;
 
@@ -2143,7 +2283,7 @@ document.getElementById('hDate').textContent=new Date().toLocaleDateString('pt-B
 initSel();
 render();
 // Carregar dados do Supabase de forma assíncrona (substitui cache local se online)
-if (SB_MODE === 'online') { loadFromSupabase(); loadIndicadoresSupabase(); } else { renderIndicadores(); }
+if (SB_MODE === 'online') { checkViewAccess().then((ok) => { if (ok) { loadFromSupabase(); loadIndicadoresSupabase(); } }); } else { renderIndicadores(); }
 // Inicializar tabela batch com 5 linhas vazias
 for(let i=0;i<5;i++) addBatchRow();
 
