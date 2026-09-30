@@ -1141,7 +1141,13 @@ if (SESSAO) loadFromLocalStorage(); // imediato (cache) — só para quem já en
 
 // ══ HELPERS ══
 // Status detalhado: ok | low (abaixo do mín) | high (acima do máx)
-const statusOf = d => d.r >= d.mn && d.r <= d.mx ? 'ok' : d.r < d.mn ? 'low' : 'high';
+// Situação do resultado — REGRA ÚNICA (R11, 30/09/2026): cópia de CalculoCQ.situacao (calculo_cq.js do lab01),
+// a mesma do app, do sync, dos alertas e do relatório gerencial. Sem mínimo → não há "abaixo";
+// sem máximo (ou máximo ≤ 0) → não há "acima". O teste r11 confere que as duas cópias dão o mesmo resultado.
+const _limMin = v => { if (v === null || v === undefined || v === '') return null; const n = Number(v); return isFinite(n) ? n : null; };
+const _limMax = v => { const n = _limMin(v); return (n === null || n <= 0) ? null : n; };
+const statusOf = d => { const a = _limMin(d.mn), b = _limMax(d.mx); if (a !== null && d.r < a) return 'low'; if (b !== null && d.r > b) return 'high'; return 'ok'; };
+const fmtLim = v => (v === null || v === undefined || v === '') ? '—' : v;
 const statusLabel = s => s==='ok' ? 'Aprovado' : s==='low' ? 'Rep. Abaixo' : 'Rep. Acima';
 const statusClass = s => s==='ok' ? 'bvok' : s==='low' ? 'bvlow' : 'bver';
 const statusValClass = s => s==='ok' ? 'vok' : s==='low' ? 'vlow' : 'ver';
@@ -1872,7 +1878,7 @@ function limpar(){['fM','fL','fPN','fRs'].forEach(id=>{const e=document.getEleme
 // ══ SESSÃO ══
 function updSess(){
   document.getElementById('sN').textContent=sess.length+' registros';
-  document.getElementById('sBody').innerHTML=sess.slice(0,30).map(d=>`<tr><td>${d.ml}</td><td>${d.p}</td><td>${d.l}</td><td class="${statusValClass(statusOf(d))}">${d.r.toFixed(3)}</td><td style="color:var(--gy3)">${d.mn}–${d.mx}</td><td><span class="bv ${statusClass(statusOf(d))}">${statusLabel(statusOf(d))}</span></td></tr>`).join('');
+  document.getElementById('sBody').innerHTML=sess.slice(0,30).map(d=>`<tr><td>${d.ml}</td><td>${d.p}</td><td>${d.l}</td><td class="${statusValClass(statusOf(d))}">${d.r.toFixed(3)}</td><td style="color:var(--gy3)">${fmtLim(d.mn)}–${fmtLim(d.mx)}</td><td><span class="bv ${statusClass(statusOf(d))}">${statusLabel(statusOf(d))}</span></td></tr>`).join('');
 }
 
 // ══ TABELA ══
@@ -1900,8 +1906,8 @@ function rTable(){
       <td>${d.ml}</td><td>${d.p}</td><td>${d.l}</td>
       <td style="color:var(--gy3)">${d.id}d</td>
       <td class="${statusValClass(statusOf(d))}">${d.r.toFixed(3)}</td>
-      <td style="color:var(--grn)">${d.mn}</td>
-      <td style="color:var(--red2)">${d.mx}</td>
+      <td style="color:var(--grn)">${fmtLim(d.mn)}</td>
+      <td style="color:var(--red2)">${fmtLim(d.mx)}</td>
       <td><span class="bv ${statusClass(statusOf(d))}">${statusLabel(statusOf(d))}</span></td>
       <td style="text-align:center">${delBtn}</td>
     </tr>`;
@@ -2018,7 +2024,7 @@ function askDelete(dataIdx) {
   document.getElementById('delDetail').innerHTML =
     `<strong>Mês:</strong> ${d.ml} &nbsp; <strong>Produto:</strong> ${d.p} &nbsp; <strong>Lote:</strong> ${d.l}<br>` +
     `<strong>Resultado:</strong> ${d.r.toFixed(3)} ${un} &nbsp; ` +
-    `<strong>Spec:</strong> ${d.mn}–${d.mx} ${un} &nbsp; ` +
+    `<strong>Spec:</strong> ${fmtLim(d.mn)}–${fmtLim(d.mx)} ${un} &nbsp; ` +
     `<strong>Status:</strong> ${statusLabel(statusOf(d))}`;
   document.getElementById('delModal').style.display = 'flex';
 }
