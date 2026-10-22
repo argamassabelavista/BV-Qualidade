@@ -336,6 +336,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <button class="nb on" onclick="setPage('dash',this)">&#9632; Dashboard</button>
   <button class="nb" onclick="setPage('dados',this)">&#9776; Base de Dados</button>
   <button class="nb" onclick="setPage('ind',this)">&#128202; Indicadores</button>
+  <button class="nb" onclick="setPage('cores',this)">&#127912; Cores</button>
   <button class="nb" onclick="setPage('rel',this)">&#128196; Relatório gerencial</button>
 </nav>
 
@@ -644,6 +645,31 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
       <table><thead><tr><th>Mês</th><th>Lotes Produzidos</th><th>Ensaios Realizados</th><th>% Ensaios Realizados</th><th style="width:70px">Gráfico</th><th style="width:40px"></th></tr></thead><tbody id="indBody"></tbody></table>
     </div>
   </div>
+</div>
+
+<!-- CORES (Desenvolvimento de Cor do Notion) — 22/10/2026 -->
+<div class="page" id="page-cores">
+  <div class="tbar" style="align-items:flex-end">
+    <div class="fg"><div class="fl">Mês</div><select class="fi" id="coresMes" onchange="renderCores()" style="min-width:160px"></select></div>
+    <span class="import-msg" id="coresMsg" style="margin-left:auto"></span>
+  </div>
+  <div class="kpis">
+    <div class="kpi cb"><div class="kl">Solicitações que entraram</div><div class="kv" id="coresKEnt">—</div><div class="ks">no mês (data de recebimento)</div></div>
+    <div class="kpi cg"><div class="kl">Finalizadas</div><div class="kv" id="coresKFin">—</div><div class="ks" id="coresKFinS">aprovadas · reprovadas</div></div>
+    <div class="kpi ca"><div class="kl">Não finalizadas</div><div class="kv" id="coresKAbe">—</div><div class="ks" id="coresKAbeS">liberado amostra · em desenvolvimento</div></div>
+    <div class="kpi cr"><div class="kl">Em aberto — todos os meses</div><div class="kv" id="coresKTot">—</div><div class="ks">solicitações ainda não finalizadas</div></div>
+  </div>
+  <div class="cb2 mb">
+    <div class="ch"><div class="ct">Solicitações de cor por mês — aprovadas × reprovadas × não finalizadas (últimos 12 meses)</div></div>
+    <div class="cw" style="height:270px"><canvas id="cCores"></canvas></div>
+  </div>
+  <div class="tbox" style="margin-top:16px">
+    <div class="thd"><div class="thtit">Solicitações de cor por mês</div><div class="tcnt" id="coresCnt">—</div></div>
+    <div class="tw" style="max-height:520px">
+      <table><thead><tr><th>Mês</th><th>Entraram</th><th>Aprovadas</th><th>Reprovadas</th><th>Finalizadas</th><th>Liberado amostra</th><th>Em desenv. / sem status</th><th>Não finalizadas</th><th>% finalizadas</th></tr></thead><tbody id="coresBody"></tbody></table>
+    </div>
+  </div>
+  <div class="ks" id="coresFonte" style="margin-top:8px"></div>
 </div>
 
 <!-- Bloqueio de acesso (senha de visualização) -->
@@ -1934,7 +1960,62 @@ function doResetConfirmed(){
 }
 
 // ══ NAV ══
-function setPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();if(id==='rel')relInit();}
+function setPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();if(id==='rel')relInit();if(id==='cores')loadCores();}
+// ══ CORES — contador do Desenvolvimento de Cor (Notion) ══ 22/10/2026
+// Dados: config.cores_mes, gravado pelo sync do Laboratório (sync_bv_qc_master.js) a partir do CSV do Notion.
+// 1 solicitação = 1 linha do Notion (ID + cor + produto), no mês da "Data do recebimento".
+// Finalizadas = Aprovado + Reprovado; não finalizadas = Liberado amostra + Em desenvolvimento + sem status.
+let CORES_MES = null;
+const CORES_MESES_PT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+function coresRotMes(m){ const [a,mm] = String(m).split('-'); return (CORES_MESES_PT[Number(mm)-1]||mm)+'/'+String(a).slice(2); }
+async function loadCores(){
+  const msg = document.getElementById('coresMsg');
+  if (SB_MODE !== 'online') { msg.textContent = 'Sem conexão com o banco.'; return; }
+  try {
+    const r = await sbGet(`${SUPABASE_URL}/rest/v1/config?chave=eq.cores_mes&select=valor`);
+    const j = await r.json();
+    CORES_MES = j && j[0] ? JSON.parse(j[0].valor) : null;
+    msg.textContent = CORES_MES ? '' : 'Ainda sem dados — o contador é gravado pelo sync diário do Laboratório.';
+  } catch (e) { if (!e.semLogin) { msg.className = 'import-msg er'; msg.textContent = 'Erro ao carregar: ' + e.message; } }
+  const sel = document.getElementById('coresMes');
+  if (CORES_MES && CORES_MES.meses && CORES_MES.meses.length) {
+    const atual = sel.value;
+    const ms = CORES_MES.meses.map(x => x.mes).reverse();
+    sel.innerHTML = ms.map(m => `<option value="${m}">${coresRotMes(m)}</option>`).join('');
+    sel.value = ms.includes(atual) ? atual : ms[0];
+  }
+  renderCores();
+}
+function coresCalc(x){ const fin = x.aprovadas + x.reprovadas, abe = x.liberado + x.emDesenv + x.semStatus; return {fin, abe, pct: x.entraram ? fin / x.entraram * 100 : 0}; }
+function renderCores(){
+  const D = CORES_MES; if (!D || !D.meses) return;
+  const m = document.getElementById('coresMes').value;
+  const x = D.meses.find(y => y.mes === m) || D.meses[D.meses.length-1];
+  const c = coresCalc(x);
+  document.getElementById('coresKEnt').textContent = x.entraram;
+  document.getElementById('coresKFin').textContent = c.fin;
+  document.getElementById('coresKFinS').textContent = `${x.aprovadas} aprovadas · ${x.reprovadas} reprovadas`;
+  document.getElementById('coresKAbe').textContent = c.abe;
+  document.getElementById('coresKAbeS').textContent = `${x.liberado} liberado amostra · ${x.emDesenv + x.semStatus} em desenv./sem status`;
+  const totAbe = D.meses.reduce((s, y) => s + coresCalc(y).abe, 0) + (D.semData ? coresCalc(D.semData).abe : 0);
+  document.getElementById('coresKTot').textContent = totAbe;
+  const ult = D.meses.slice(-12);
+  dc('cores');
+  charts['cores'] = new Chart(document.getElementById('cCores'), { type: 'bar',
+    data: { labels: ult.map(y => coresRotMes(y.mes)), datasets: [
+      { label: 'Aprovadas', data: ult.map(y => y.aprovadas), backgroundColor: 'rgba(39,174,96,.75)', stack: 's' },
+      { label: 'Reprovadas', data: ult.map(y => y.reprovadas), backgroundColor: 'rgba(231,76,60,.75)', stack: 's' },
+      { label: 'Não finalizadas', data: ult.map(y => coresCalc(y).abe), backgroundColor: 'rgba(230,126,34,.75)', stack: 's' } ] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#bbb' } } },
+      scales: { x: { stacked: true, ticks: { color: '#999' }, grid: { color: 'rgba(255,255,255,.05)' } }, y: { stacked: true, beginAtZero: true, ticks: { color: '#999', precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } } } } });
+  const linhas = D.meses.slice().reverse().map(y => { const k = coresCalc(y); return `<tr${y.mes===m?' style="background:rgba(52,152,219,.12)"':''}><td>${coresRotMes(y.mes)}</td><td>${y.entraram}</td><td>${y.aprovadas}</td><td>${y.reprovadas}</td><td><b>${k.fin}</b></td><td>${y.liberado}</td><td>${y.emDesenv + y.semStatus}</td><td><b>${k.abe}</b></td><td>${k.pct.toFixed(0)}%</td></tr>`; });
+  if (D.semData && D.semData.entraram) { const k = coresCalc(D.semData); linhas.push(`<tr><td>sem data</td><td>${D.semData.entraram}</td><td>${D.semData.aprovadas}</td><td>${D.semData.reprovadas}</td><td><b>${k.fin}</b></td><td>${D.semData.liberado}</td><td>${D.semData.emDesenv + D.semData.semStatus}</td><td><b>${k.abe}</b></td><td>—</td></tr>`); }
+  document.getElementById('coresBody').innerHTML = linhas.join('');
+  document.getElementById('coresCnt').textContent = D.meses.length + ' meses';
+  const dt = s => s ? new Date(s).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  document.getElementById('coresFonte').textContent = `Fonte: Notion · Desenvolvimento de Cor (CSV de ${dt(D.csvData)}), contado pelo sync em ${dt(D.ts)}. 1 solicitação = 1 linha do Notion (ID + cor + produto). Finalizadas = Aprovado + Reprovado.`;
+}
 function setFTab(id,btn){document.querySelectorAll('.ftab-page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));document.getElementById('ftab-'+id).classList.add('on');btn.classList.add('on');}
 
 // ══ BOOT ══
@@ -2300,7 +2381,7 @@ const REL_URL = SUPABASE_URL + '/functions/v1/relatorio-gerencial';
 let REL_SENHA = null;          // só em memória; some ao recarregar a página
 let REL_ATUAL = null;          // {modo:'publicado'|'rascunho', mes, rel}
 let REL_INICIADO = false;
-const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
 const relMesExt = (m) => { if (!m) return ''; const [a, mm] = m.split('-'); return MESES_PT[Number(mm) - 1] + ' de ' + a; };
 const relMesCurto = (m) => { if (!m) return ''; const [a, mm] = m.split('-'); return MESES_PT[Number(mm) - 1].slice(0, 3) + '/' + a.slice(2); };
 const relEsc = (s) => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
