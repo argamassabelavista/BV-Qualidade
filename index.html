@@ -2027,7 +2027,7 @@ function renderCores(){
     data: { labels: ult.map(y => coresRotMes(y.mes)), datasets: [
       { type: 'bar', label: 'Entraram', data: ult.map(y => y.entraram), backgroundColor: 'rgba(52,152,219,.72)', borderWidth: 0, yAxisID: 'y' },
       { type: 'bar', label: 'Em desenvolvimento', data: ult.map(y => coresCalc(y).des), backgroundColor: 'rgba(149,165,166,.65)', borderWidth: 0, yAxisID: 'y' },
-      { type: 'bar', label: 'Sem retorno do comercial', data: ult.map(y => y.liberado), backgroundColor: 'rgba(230,126,34,.78)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'bar', label: 'Amostra liberada', data: ult.map(y => y.liberado), backgroundColor: 'rgba(230,126,34,.78)', borderWidth: 0, yAxisID: 'y' },
       { type: 'bar', label: 'Aprovadas', data: ult.map(y => y.aprovadas), backgroundColor: 'rgba(39,174,96,.75)', borderWidth: 0, yAxisID: 'y' },
       { type: 'bar', label: 'Reprovadas', data: ult.map(y => y.reprovadas), backgroundColor: 'rgba(231,76,60,.75)', borderWidth: 0, yAxisID: 'y' },
       { type: 'line', label: '% sem retorno do comercial', data: ult.map(y => { const k = coresCalc(y); return k.lib ? +k.pct.toFixed(1) : null; }), borderColor: '#f5b041', backgroundColor: '#f5b041', borderWidth: 2.5, pointRadius: 4, tension: 0.15, fill: false, spanGaps: true, yAxisID: 'y1' } ] },
