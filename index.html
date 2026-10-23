@@ -664,13 +664,13 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
     <div class="kpi ca"><div class="kl">Sem retorno do comercial — todos os meses</div><div class="kv" id="coresKTot">—</div><div class="ks" id="coresKTotS">amostras liberadas sem informação de aprovado/reprovado</div></div>
   </div>
   <div class="cb2 mb">
-    <div class="ch"><div class="ct">Solicitações de cor por mês — retorno do cliente (últimos 12 meses)</div></div>
+    <div class="ch"><div class="ct">Solicitações de cor por mês — retorno do cliente (meses marcados na tabela)</div></div>
     <div class="cw" style="height:270px"><canvas id="cCores"></canvas></div>
   </div>
   <div class="tbox" style="margin-top:16px">
     <div class="thd"><div class="thtit">Solicitações de cor por mês</div><div class="tcnt" id="coresCnt">—</div></div>
     <div class="tw" style="max-height:520px">
-      <table><thead><tr><th>Mês</th><th>Entraram</th><th>Em desenvolvimento</th><th>Liberado amostra · sem retorno</th><th>Aprovadas</th><th>Reprovadas</th><th>% sem retorno do comercial</th></tr></thead><tbody id="coresBody"></tbody></table>
+      <table><thead><tr><th>Mês</th><th>Entraram</th><th>Em desenvolvimento</th><th>Liberado amostra · sem retorno</th><th>Aprovadas</th><th>Reprovadas</th><th>% sem retorno do comercial</th><th style="text-align:center">Gráfico</th></tr></thead><tbody id="coresBody"></tbody></table>
     </div>
   </div>
   <div class="ks" id="coresFonte" style="margin-top:8px"></div>
@@ -1993,6 +1993,16 @@ async function loadCores(){
 }
 // des = em desenvolvimento no laboratório; sem = liberada sem retorno; pct = sem retorno ÷ amostras liberadas
 function coresCalc(x){ const des = x.emDesenv + x.semStatus, lib = x.liberado + x.aprovadas + x.reprovadas; return {des, lib, pct: lib ? x.liberado / lib * 100 : 0}; }
+// 23/10/2026: meses do gráfico de Cores escolhidos na tabela (como em Indicadores). Fica guardado neste navegador.
+// Padrão (nunca mexeu): últimos 12 meses marcados.
+let CORES_MESES_MARC = null;
+try { const v = localStorage.getItem('bv_cores_meses_grafico'); CORES_MESES_MARC = v ? new Set(JSON.parse(v)) : null; } catch(e) { CORES_MESES_MARC = null; }
+function coresMarcados(D){ return CORES_MESES_MARC || new Set(D.meses.slice(-12).map(y => y.mes)); }
+function toggleCoresMes(mes){
+  const s = new Set(coresMarcados(CORES_MES)); if (s.has(mes)) s.delete(mes); else s.add(mes);
+  CORES_MESES_MARC = s; try { localStorage.setItem('bv_cores_meses_grafico', JSON.stringify([...s])); } catch(e) {}
+  renderCores();
+}
 function renderCores(){
   const D = CORES_MES; if (!D || !D.meses) return;
   const m = document.getElementById('coresMes').value;
@@ -2009,19 +2019,29 @@ function renderCores(){
   const totSem = todos.reduce((s, y) => s + y.liberado, 0), totLib = todos.reduce((s, y) => s + coresCalc(y).lib, 0);
   document.getElementById('coresKTot').textContent = totSem;
   document.getElementById('coresKTotS').textContent = `${totLib ? (totSem/totLib*100).toFixed(0) : 0}% das ${totLib} amostras liberadas pelo laboratório estão sem informação de aprovado/reprovado`;
-  const ult = D.meses.slice(-12);
+  const marc = coresMarcados(D);
+  const ult = D.meses.filter(y => marc.has(y.mes));
   dc('cores');
+  // barras lado a lado (não empilhadas) + linha do % sem retorno do comercial no eixo da direita
   charts['cores'] = new Chart(document.getElementById('cCores'), { type: 'bar',
     data: { labels: ult.map(y => coresRotMes(y.mes)), datasets: [
-      { label: 'Aprovadas', data: ult.map(y => y.aprovadas), backgroundColor: 'rgba(39,174,96,.75)', stack: 's' },
-      { label: 'Reprovadas', data: ult.map(y => y.reprovadas), backgroundColor: 'rgba(231,76,60,.75)', stack: 's' },
-      { label: 'Sem retorno do comercial', data: ult.map(y => y.liberado), backgroundColor: 'rgba(230,126,34,.75)', stack: 's' },
-      { label: 'Em desenvolvimento', data: ult.map(y => coresCalc(y).des), backgroundColor: 'rgba(149,165,166,.6)', stack: 's' } ] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#bbb' } } },
-      scales: { x: { stacked: true, ticks: { color: '#999' }, grid: { color: 'rgba(255,255,255,.05)' } }, y: { stacked: true, beginAtZero: true, ticks: { color: '#999', precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } } } } });
-  const lin = (rot, y, destaque) => { const k = coresCalc(y); return `<tr${destaque?' style="background:rgba(52,152,219,.12)"':''}><td>${rot}</td><td>${y.entraram}</td><td>${k.des}</td><td><b style="color:var(--amb)">${y.liberado}</b></td><td>${y.aprovadas}</td><td>${y.reprovadas}</td><td>${k.lib ? k.pct.toFixed(0)+'%' : '—'}</td></tr>`; };
-  const linhas = D.meses.slice().reverse().map(y => lin(coresRotMes(y.mes), y, y.mes === m));
-  if (D.semData && D.semData.entraram) linhas.push(lin('sem data', D.semData, false));
+      { type: 'bar', label: 'Entraram', data: ult.map(y => y.entraram), backgroundColor: 'rgba(52,152,219,.72)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'bar', label: 'Em desenvolvimento', data: ult.map(y => coresCalc(y).des), backgroundColor: 'rgba(149,165,166,.65)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'bar', label: 'Sem retorno do comercial', data: ult.map(y => y.liberado), backgroundColor: 'rgba(230,126,34,.78)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'bar', label: 'Aprovadas', data: ult.map(y => y.aprovadas), backgroundColor: 'rgba(39,174,96,.75)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'bar', label: 'Reprovadas', data: ult.map(y => y.reprovadas), backgroundColor: 'rgba(231,76,60,.75)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'line', label: '% sem retorno do comercial', data: ult.map(y => { const k = coresCalc(y); return k.lib ? +k.pct.toFixed(1) : null; }), borderColor: '#f5b041', backgroundColor: '#f5b041', borderWidth: 2.5, pointRadius: 4, tension: 0.15, fill: false, spanGaps: true, yAxisID: 'y1' } ] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: '#999', font: { size: 11 }, boxWidth: 12, padding: 13 } },
+        tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? `${c.dataset.label}: ${c.parsed.y.toFixed(0)}%` : `${c.dataset.label}: ${c.parsed.y}` } } },
+      scales: { x: { ticks: { color: '#999', maxRotation: 45, autoSkip: true }, grid: { color: 'rgba(255,255,255,.05)' } },
+        y: { beginAtZero: true, position: 'left', ticks: { color: '#999', precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } },
+        y1: { position: 'right', min: 0, max: 100, ticks: { color: '#999', callback: v => v + '%' }, grid: { drawOnChartArea: false } } } } });
+  const lin = (rot, y, destaque, mes) => { const k = coresCalc(y); const vis = !mes || marc.has(mes);
+    const chk = mes ? `<input type="checkbox" ${vis?'checked':''} onchange="toggleCoresMes('${mes}')" title="Incluir/excluir este mês do gráfico">` : '';
+    return `<tr style="${destaque?'background:rgba(52,152,219,.12);':''}${vis?'':'opacity:.45;'}"><td>${rot}</td><td>${y.entraram}</td><td>${k.des}</td><td><b style="color:var(--amb)">${y.liberado}</b></td><td>${y.aprovadas}</td><td>${y.reprovadas}</td><td>${k.lib ? k.pct.toFixed(0)+'%' : '—'}</td><td style="text-align:center">${chk}</td></tr>`; };
+  const linhas = D.meses.slice().reverse().map(y => lin(coresRotMes(y.mes), y, y.mes === m, y.mes));
+  if (D.semData && D.semData.entraram) linhas.push(lin('sem data', D.semData, false, null));
   document.getElementById('coresBody').innerHTML = linhas.join('');
   document.getElementById('coresCnt').textContent = D.meses.length + ' meses';
   const dt = s => s ? new Date(s).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
