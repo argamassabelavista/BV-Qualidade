@@ -656,12 +656,14 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <div class="kpis">
     <div class="kpi cb"><div class="kl">Solicitações que entraram</div><div class="kv" id="coresKEnt">—</div><div class="ks">no mês (data de recebimento)</div></div>
     <div class="kpi cs"><div class="kl">Em desenvolvimento</div><div class="kv" id="coresKDes">—</div><div class="ks" id="coresKDesS">laboratório</div></div>
-    <div class="kpi ca"><div class="kl">Liberado amostra · sem retorno do comercial</div><div class="kv" id="coresKSem">—</div><div class="ks" id="coresKSemS">aguardando aprovado/reprovado</div></div>
-    <div class="kpi cg"><div class="kl">Aprovadas pelo cliente</div><div class="kv" id="coresKApr">—</div><div class="ks">status Aprovado no Notion</div></div>
-    <div class="kpi cr"><div class="kl">Reprovadas pelo cliente</div><div class="kv" id="coresKRep">—</div><div class="ks">status Reprovado no Notion</div></div>
+    <div class="kpi cb"><div class="kl">Finalizadas pelo laboratório</div><div class="kv" id="coresKFin">—</div><div class="ks" id="coresKFinS">liberado amostra + aprovado + reprovado</div></div>
+    <div class="kpi ca"><div class="kl">Aguardando o comercial</div><div class="kv" id="coresKSem">—</div><div class="ks" id="coresKSemS">"Liberado amostra": finalizado pelo laboratório, sem posição do comercial</div></div>
+    <div class="kpi cg"><div class="kl">Aprovadas pelo cliente</div><div class="kv" id="coresKApr">—</div><div class="ks">liberada pelo laboratório e aprovada pelo cliente</div></div>
+    <div class="kpi cr"><div class="kl">Reprovadas pelo cliente</div><div class="kv" id="coresKRep">—</div><div class="ks">liberada pelo laboratório e reprovada pelo cliente</div></div>
   </div>
-  <div class="kpis" style="grid-template-columns:1fr">
-    <div class="kpi ca"><div class="kl">Sem retorno do comercial — todos os meses</div><div class="kv" id="coresKTot">—</div><div class="ks" id="coresKTotS">amostras liberadas sem informação de aprovado/reprovado</div></div>
+  <div class="kpis" style="grid-template-columns:1fr 1fr">
+    <div class="kpi cg"><div class="kl">Taxa de aprovação do cliente</div><div class="kv" id="coresKTaxa">—</div><div class="ks" id="coresKTaxaS">aprovadas ÷ (aprovadas + reprovadas)</div></div>
+    <div class="kpi ca"><div class="kl">Aguardando o comercial — todos os meses</div><div class="kv" id="coresKTot">—</div><div class="ks" id="coresKTotS">amostras finalizadas pelo laboratório sem posição do comercial</div></div>
   </div>
   <div class="cb2 mb">
     <div class="ch"><div class="ct">Solicitações de cor por mês — retorno do cliente (meses marcados na tabela)</div></div>
@@ -670,7 +672,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <div class="tbox" style="margin-top:16px">
     <div class="thd"><div class="thtit">Solicitações de cor por mês</div><div class="tcnt" id="coresCnt">—</div></div>
     <div class="tw" style="max-height:520px">
-      <table><thead><tr><th>Mês</th><th>Entraram</th><th>Em desenvolvimento</th><th>Liberado amostra · sem retorno</th><th>Aprovadas</th><th>Reprovadas</th><th>% sem retorno do comercial</th><th style="text-align:center">Gráfico</th></tr></thead><tbody id="coresBody"></tbody></table>
+      <table><thead><tr><th>Mês</th><th>Entraram</th><th>Em desenvolvimento</th><th>Finalizadas pelo laboratório</th><th>Aguardando o comercial</th><th>Aprovadas</th><th>Reprovadas</th><th>Taxa de aprovação</th><th>% aguardando o comercial</th><th style="text-align:center">Gráfico</th></tr></thead><tbody id="coresBody"></tbody></table>
     </div>
   </div>
   <div class="ks" id="coresFonte" style="margin-top:8px"></div>
@@ -1991,8 +1993,12 @@ async function loadCores(){
   }
   renderCores();
 }
-// des = em desenvolvimento no laboratório; sem = liberada sem retorno; pct = sem retorno ÷ amostras liberadas
-function coresCalc(x){ const des = x.emDesenv + x.semStatus, lib = x.liberado + x.aprovadas + x.reprovadas; return {des, lib, pct: lib ? x.liberado / lib * 100 : 0}; }
+// 31/10/2026 (Alexander): "Liberado amostra" = o laboratório finalizou e aguarda a posição do comercial;
+// "Aprovado"/"Reprovado" = liberada pelo laboratório (finalizada) e o cliente aprovou/reprovou.
+// des = em desenvolvimento no laboratório (+ sem status); lib = finalizadas pelo laboratório (liberado + aprovado + reprovado);
+// pct = aguardando o comercial ÷ finalizadas; taxa = aprovadas ÷ (aprovadas + reprovadas)
+function coresCalc(x){ const des = x.emDesenv + x.semStatus, lib = x.liberado + x.aprovadas + x.reprovadas, dec = x.aprovadas + x.reprovadas;
+  return {des, lib, pct: lib ? x.liberado / lib * 100 : 0, taxa: dec ? x.aprovadas / dec * 100 : null, dec}; }
 // 23/10/2026: meses do gráfico de Cores escolhidos na tabela (como em Indicadores). Fica guardado neste navegador.
 // Padrão (nunca mexeu): últimos 12 meses marcados.
 let CORES_MESES_MARC = null;
@@ -2010,27 +2016,33 @@ function renderCores(){
   const c = coresCalc(x);
   document.getElementById('coresKEnt').textContent = x.entraram;
   document.getElementById('coresKDes').textContent = c.des;
-  document.getElementById('coresKDesS').textContent = x.semStatus ? `${x.emDesenv} em desenvolvimento · ${x.semStatus} sem status` : 'laboratório';
+  document.getElementById('coresKDesS').textContent = x.semStatus ? `${x.emDesenv} em desenvolvimento · ${x.semStatus} sem status` : 'no laboratório';
+  document.getElementById('coresKFin').textContent = c.lib;
+  document.getElementById('coresKFinS').textContent = x.entraram ? `${(c.lib / x.entraram * 100).toFixed(0)}% das ${x.entraram} que entraram · liberado + aprovado + reprovado` : 'liberado amostra + aprovado + reprovado';
   document.getElementById('coresKSem').textContent = x.liberado;
-  document.getElementById('coresKSemS').textContent = c.lib ? `${c.pct.toFixed(0)}% das ${c.lib} amostras liberadas` : 'nenhuma amostra liberada';
+  document.getElementById('coresKSemS').textContent = c.lib ? `"Liberado amostra" — ${c.pct.toFixed(0)}% das ${c.lib} finalizadas, sem posição do comercial` : 'nenhuma amostra finalizada';
   document.getElementById('coresKApr').textContent = x.aprovadas;
   document.getElementById('coresKRep').textContent = x.reprovadas;
+  document.getElementById('coresKTaxa').textContent = c.taxa == null ? '—' : c.taxa.toFixed(0) + '%';
+  document.getElementById('coresKTaxaS').textContent = c.dec ? `${x.aprovadas} aprovadas de ${c.dec} com posição do cliente no mês` : 'nenhuma posição do cliente no mês';
   const todos = D.meses.concat(D.semData ? [D.semData] : []);
   const totSem = todos.reduce((s, y) => s + y.liberado, 0), totLib = todos.reduce((s, y) => s + coresCalc(y).lib, 0);
   document.getElementById('coresKTot').textContent = totSem;
-  document.getElementById('coresKTotS').textContent = `${totLib ? (totSem/totLib*100).toFixed(0) : 0}% das ${totLib} amostras liberadas pelo laboratório estão sem informação de aprovado/reprovado`;
+  document.getElementById('coresKTotS').textContent = `${totLib ? (totSem/totLib*100).toFixed(0) : 0}% das ${totLib} amostras finalizadas pelo laboratório estão sem posição do comercial`;
   const marc = coresMarcados(D);
   const ult = D.meses.filter(y => marc.has(y.mes));
   dc('cores');
-  // barras lado a lado (não empilhadas) + linha do % sem retorno do comercial no eixo da direita
+  // barras lado a lado (não empilhadas) + linhas do % aguardando o comercial e da taxa de aprovação no eixo da direita
   charts['cores'] = new Chart(document.getElementById('cCores'), { type: 'bar',
     data: { labels: ult.map(y => coresRotMes(y.mes)), datasets: [
       { type: 'bar', label: 'Entraram', data: ult.map(y => y.entraram), backgroundColor: 'rgba(52,152,219,.72)', borderWidth: 0, yAxisID: 'y' },
       { type: 'bar', label: 'Em desenvolvimento', data: ult.map(y => coresCalc(y).des), backgroundColor: 'rgba(149,165,166,.65)', borderWidth: 0, yAxisID: 'y' },
-      { type: 'bar', label: 'Amostra liberada', data: ult.map(y => y.liberado), backgroundColor: 'rgba(230,126,34,.78)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'bar', label: 'Finalizadas pelo laboratório', data: ult.map(y => coresCalc(y).lib), backgroundColor: 'rgba(26,188,156,.72)', borderWidth: 0, yAxisID: 'y' },
+      { type: 'bar', label: 'Aguardando o comercial', data: ult.map(y => y.liberado), backgroundColor: 'rgba(230,126,34,.78)', borderWidth: 0, yAxisID: 'y' },
       { type: 'bar', label: 'Aprovadas', data: ult.map(y => y.aprovadas), backgroundColor: 'rgba(39,174,96,.75)', borderWidth: 0, yAxisID: 'y' },
       { type: 'bar', label: 'Reprovadas', data: ult.map(y => y.reprovadas), backgroundColor: 'rgba(231,76,60,.75)', borderWidth: 0, yAxisID: 'y' },
-      { type: 'line', label: '% sem retorno do comercial', data: ult.map(y => { const k = coresCalc(y); return k.lib ? +k.pct.toFixed(1) : null; }), borderColor: '#f5b041', backgroundColor: '#f5b041', borderWidth: 2.5, pointRadius: 4, tension: 0.15, fill: false, spanGaps: true, yAxisID: 'y1' } ] },
+      { type: 'line', label: '% aguardando o comercial', data: ult.map(y => { const k = coresCalc(y); return k.lib ? +k.pct.toFixed(1) : null; }), borderColor: '#f5b041', backgroundColor: '#f5b041', borderWidth: 2.5, pointRadius: 4, tension: 0.15, fill: false, spanGaps: true, yAxisID: 'y1' },
+      { type: 'line', label: 'Taxa de aprovação do cliente', data: ult.map(y => { const k = coresCalc(y); return k.taxa == null ? null : +k.taxa.toFixed(1); }), borderColor: '#2ecc71', backgroundColor: '#2ecc71', borderWidth: 2.5, borderDash: [6, 4], pointRadius: 4, tension: 0.15, fill: false, spanGaps: true, yAxisID: 'y1' } ] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: true, position: 'bottom', labels: { color: '#999', font: { size: 11 }, boxWidth: 12, padding: 13 } },
         tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? `${c.dataset.label}: ${c.parsed.y.toFixed(0)}%` : `${c.dataset.label}: ${c.parsed.y}` } } },
@@ -2039,13 +2051,13 @@ function renderCores(){
         y1: { position: 'right', min: 0, max: 100, ticks: { color: '#999', callback: v => v + '%' }, grid: { drawOnChartArea: false } } } } });
   const lin = (rot, y, destaque, mes) => { const k = coresCalc(y); const vis = !mes || marc.has(mes);
     const chk = mes ? `<input type="checkbox" ${vis?'checked':''} onchange="toggleCoresMes('${mes}')" title="Incluir/excluir este mês do gráfico">` : '';
-    return `<tr style="${destaque?'background:rgba(52,152,219,.12);':''}${vis?'':'opacity:.45;'}"><td>${rot}</td><td>${y.entraram}</td><td>${k.des}</td><td><b style="color:var(--amb)">${y.liberado}</b></td><td>${y.aprovadas}</td><td>${y.reprovadas}</td><td>${k.lib ? k.pct.toFixed(0)+'%' : '—'}</td><td style="text-align:center">${chk}</td></tr>`; };
+    return `<tr style="${destaque?'background:rgba(52,152,219,.12);':''}${vis?'':'opacity:.45;'}"><td>${rot}</td><td>${y.entraram}</td><td>${k.des}</td><td>${k.lib}</td><td><b style="color:var(--amb)">${y.liberado}</b></td><td>${y.aprovadas}</td><td>${y.reprovadas}</td><td>${k.taxa == null ? '—' : k.taxa.toFixed(0)+'%'}</td><td>${k.lib ? k.pct.toFixed(0)+'%' : '—'}</td><td style="text-align:center">${chk}</td></tr>`; };
   const linhas = D.meses.slice().reverse().map(y => lin(coresRotMes(y.mes), y, y.mes === m, y.mes));
   if (D.semData && D.semData.entraram) linhas.push(lin('sem data', D.semData, false, null));
   document.getElementById('coresBody').innerHTML = linhas.join('');
   document.getElementById('coresCnt').textContent = D.meses.length + ' meses';
   const dt = s => s ? new Date(s).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
-  document.getElementById('coresFonte').textContent = `Fonte: Notion · Desenvolvimento de Cor (CSV de ${dt(D.csvData)}), contado pelo sync em ${dt(D.ts)}. 1 solicitação = 1 linha do Notion (ID + cor + produto). "Liberado amostra" = o laboratório entregou a amostra e o comercial ainda não informou se o cliente aprovou ou reprovou.`;
+  document.getElementById('coresFonte').textContent = `Fonte: Notion · Desenvolvimento de Cor (CSV de ${dt(D.csvData)}), contado pelo sync em ${dt(D.ts)}. 1 solicitação = 1 linha do Notion (ID + cor + produto). Finalizadas pelo laboratório = Liberado amostra + Aprovado + Reprovado. "Liberado amostra" (aguardando o comercial) = o laboratório finalizou e o comercial ainda não informou a posição do cliente. Aprovado/Reprovado = liberada pelo laboratório e o cliente aprovou/reprovou. Taxa de aprovação = aprovadas ÷ (aprovadas + reprovadas).`;
 }
 function setFTab(id,btn){document.querySelectorAll('.ftab-page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));document.getElementById('ftab-'+id).classList.add('on');btn.classList.add('on');}
 
