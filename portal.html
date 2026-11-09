@@ -1149,7 +1149,7 @@ async function consDetalhe(id) {
    parecer completo e PDF), 4a (até 10 fotos; até 2 vídeos de até 50 MB; vídeo 60 dias no portal, foto 12 meses — o Lab01 guarda). */
 const AT_BUCKET = 'portal-at', AT_MAX_FOTOS = 10, AT_MAX_VIDEOS = 2, AT_MAX_VIDEO = 50 * 1048576;
 const AT_PROBLEMAS = ['Fissura / trinca', 'Descolamento / falta de aderência', 'Esfarelamento / pulverulência', 'Eflorescência / manchas', 'Diferença de cor', 'Consistência / trabalhabilidade', 'Pega (rápida ou lenta)', 'Outro'];
-const AT_ST = { aberto: '📨 Aberto — aguardando o laboratório', recebido: '📥 Recebido pelo laboratório', em_ensaio: '🧪 Em ensaio no laboratório', parecer: '📝 Parecer emitido' };
+const AT_ST = { aberto: '📨 Aberto — aguardando o laboratório', recebido: '📥 Recebido pelo laboratório', em_ensaio: '🧪 Em ensaio no laboratório', concluido: '✅ Ensaio concluído no laboratório', parecer: '📝 Parecer emitido' };
 const AT_RES = { procedente: ['Procedente', '#fdecea', '#b71c1c'], nao_procedente: ['Não procedente', '#e8f5e9', '#1b5e20'], parcial: ['Parcialmente procedente', '#fff8e1', '#8d6e00'] };
 let AT = [], AT_FOTOS = [], AT_VIDEOS = [];
 $('atSoMeus').addEventListener('change', atDesenhar);
@@ -1261,7 +1261,7 @@ async function atCarregar() {
   try { AT = await (await api('/rest/v1/portal_at?select=*&order=id.desc&limit=300')).json(); atDesenhar(); }
   catch (e) { $('atLista').innerHTML = `<div class="bad">Não foi possível carregar: ${esc(e.message)}</div>`; }
 }
-function atStatus(c) { return c.status === 'em_ensaio' && c.registro ? '🧪 Em ensaio no laboratório (registro ' + esc(c.registro) + ')' : (AT_ST[c.status] || esc(c.status)); }
+function atStatus(c) { return (c.status === 'em_ensaio' || c.status === 'concluido') && c.registro ? AT_ST[c.status] + ' (registro ' + esc(c.registro) + ')' : (AT_ST[c.status] || esc(c.status)); }
 function atDesenhar() {
   const meu = ACESSO && ACESSO.user_id, so = $('atSoMeus').checked, todos = PERM.has('portal_at_todos');
   const L = AT.filter((c) => !so || c.user_id === meu);
