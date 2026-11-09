@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Bela Vista — Portal de cores</title>
+<!-- Portal de cores — fase 1 (09/11/2026). Mesmo login do Dashboard BV QC Master (Supabase Auth, sessão compartilhada).
+     Catálogo de cores (sem dosagem) + cor mais próxima por foto, valores ou Coralis. Funciona com o Lab01 desligado:
+     os dados vêm do Supabase (portal_dados), publicados de hora em hora pelo portal_sync.js. Fundo claro e neutro de
+     propósito: fundo escuro muda a percepção da cor na tela. -->
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f2f2f0;--card:#fff;--line:#d9d9d6;--tx:#1d1d1d;--soft:#6b6b6b;--red:#c0392b;--red2:#a93226;--ok:#1e8449;--okbg:#e8f5ec;--warn:#9a5b00;--warnbg:#fff4e0;--bad:#b03a2e;--info:#eef3f8}
+body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+.hdr{background:#111;color:#fff;border-bottom:3px solid var(--red);display:flex;align-items:center;justify-content:space-between;padding:0 16px;min-height:54px;position:sticky;top:0;z-index:50;gap:10px;flex-wrap:wrap}
+.hdr b{font-size:15px;letter-spacing:.3px}.hdr small{display:block;color:#999;font-size:10.5px}
+.hdr-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px}
+.hdr-r a,.hdr-r button{background:none;border:1px solid #444;color:#ddd;border-radius:6px;padding:4px 9px;cursor:pointer;text-decoration:none;font-size:12px}
+.hdr-r a:hover,.hdr-r button:hover{border-color:var(--red);color:#fff}
+.nav{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 10px;overflow-x:auto}
+.nb{background:none;border:none;padding:11px 14px;cursor:pointer;color:var(--soft);font-weight:600;border-bottom:3px solid transparent;white-space:nowrap}
+.nb.on{color:var(--tx);border-bottom-color:var(--red)}
+.page{display:none;padding:14px;max-width:1100px;margin:0 auto}.page.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.inp{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;min-width:0}
+.inp:focus{outline:2px solid #e9b8b2;border-color:var(--red)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 13px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:#999}.btn:disabled{opacity:.55;cursor:default}
+.btn-p{background:var(--red);border-color:var(--red);color:#fff}.btn-p:hover{background:var(--red2)}
+.btn.sel{outline:2px solid var(--red);outline-offset:-1px}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:1px 8px;font-size:11.5px;color:var(--soft);background:#fafafa;margin:1px 2px 1px 0}
+.chip.ok{border-color:#a9d8b8;background:var(--okbg);color:var(--ok)}
+.small{font-size:12px}.soft{color:var(--soft)}.ok{color:var(--ok)}.bad{color:var(--bad)}.mono{font-family:Consolas,monospace}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.cor{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+.cor:hover{border-color:#999}
+.cor .sw{height:70px;border-bottom:1px solid var(--line)}
+.cor .tx{padding:8px 10px;flex:1}
+.sw0{background:repeating-linear-gradient(45deg,#eee,#eee 6px,#f8f8f8 6px,#f8f8f8 12px)}
+.item{display:flex;gap:10px;align-items:center;padding:7px 4px;border-top:1px solid #eee}
+.item:first-child{border-top:none}
+.msw{width:40px;height:28px;border-radius:6px;border:1px solid var(--line);flex:none}
+.aviso{background:var(--warnbg);border:1px solid #f0d3a0;color:#5a3a00;border-radius:8px;padding:8px 11px;font-size:12.5px;margin:8px 0}
+.info{background:var(--info);border:1px solid #c9d7e6;border-radius:8px;padding:8px 11px;font-size:12.5px;margin:8px 0}
+h3{font-size:14px;margin:12px 0 4px}h2{font-size:16px;margin-bottom:6px}
+.field{margin-bottom:9px}.field label{display:block;font-size:12px;font-weight:600;margin-bottom:3px}
+.field .inp{width:100%}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:14px}
+.modal{background:#fff;border-radius:12px;padding:20px;max-width:420px;width:100%;max-height:92vh;overflow:auto}
+.modal.l{max-width:760px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:9px 16px;border-radius:8px;z-index:200;display:none;max-width:92vw;font-size:13px}
+#fotoWrap{position:relative;max-width:100%;touch-action:none}
+#fotoCv{max-width:100%;display:block;border-radius:8px;border:1px solid var(--line);cursor:crosshair;touch-action:none}
+.de{white-space:nowrap;font-weight:700}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}.tbl td,.tbl th{padding:5px 6px;border-top:1px solid #eee;text-align:left;vertical-align:middle}
+@media (max-width:600px){.page{padding:10px}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.cor .sw{height:56px}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div><b>BELA VISTA · Portal de cores</b><small>Catálogo e cor mais próxima — referência de tela; a cor se aprova na placa</small></div>
+  <div class="hdr-r" id="hdrR" style="display:none"><span id="hdrEmail" style="color:#bbb"></span>
+    <a id="lnkDash" href="./" style="display:none">Dashboard</a>
+    <button onclick="trocaAbrir(false)">Trocar senha</button><button onclick="sair()">Sair</button></div>
+</div>
+<div class="nav" id="nav" style="display:none">
+  <button class="nb" data-pg="cat" onclick="irPara('cat')">🎨 Catálogo de cores</button>
+  <button class="nb" data-pg="prox" onclick="irPara('prox')">🔎 Cor mais próxima</button>
+  <button class="nb" data-pg="cons" onclick="irPara('cons')">📋 Consultas</button>
+</div>
+<div id="semAcesso" style="display:none;max-width:520px;margin:50px auto;text-align:center" class="card">
+  <div style="font-size:32px">🔒</div><b>Seu usuário ainda não tem acesso ao Portal de cores.</b>
+  <p class="small soft" style="margin-top:6px">Peça ao administrador para marcar Catálogo ou Cor mais próxima na aba Usuários do Dashboard.</p>
+  <p id="semAcessoDash" style="display:none;margin-top:10px"><a class="btn" href="./">Abrir o Dashboard</a></p></div>
+<div id="carregando" style="display:none;text-align:center;margin:40px" class="soft">Carregando as cores…</div>
+
+<!-- CATÁLOGO -->
+<div class="page" id="pg-cat">
+  <div class="card">
+    <div class="bar">
+      <input class="inp" id="catBusca" type="search" placeholder="Buscar por nome ou código (ex.: 085DB, cinza, Suvinil C183)" style="flex:1 1 260px">
+      <select class="inp" id="catFonte"><option value="bv">Cores Bela Vista</option><option value="ref">Outras marcas (catálogos de referência)</option></select>
+    </div>
+    <div class="bar" id="catFiltrosBV">
+      <span class="small soft">Tom:</span>
+      <select class="inp" id="catTom"><option value="">todos</option><option value="branca">Branca</option><option value="clara">Clara</option><option value="escura">Escura</option></select>
+      <label class="small"><input type="checkbox" id="catDesenv"> só as já desenvolvidas</label>
+      <select class="inp" id="catProd"><option value="">em qualquer produto</option></select>
+    </div>
+    <div class="bar" id="catFiltrosRef" style="display:none">
+      <select class="inp" id="catMarca"><option value="">todas as marcas</option></select>
+      <label class="small"><input type="checkbox" id="catTemos"> só as que a Bela Vista já desenvolveu</label>
+    </div>
+    <div class="small soft" id="catInfo"></div>
+  </div>
+  <div class="grid" id="catGrid"></div>
+  <div style="text-align:center;margin:12px"><button class="btn" id="catMais" style="display:none">Mostrar mais</button></div>
+</div>
+
+<!-- COR MAIS PRÓXIMA -->
+<div class="page" id="pg-prox">
+  <div class="card">
+    <h2>Cor mais próxima</h2>
+    <div class="small soft" style="margin-bottom:8px">Compare uma cor com as cores da Bela Vista e dos catálogos. Nada é gravado até você enviar ao laboratório.</div>
+    <div class="bar">
+      <button class="btn" id="mFoto" onclick="modo('foto')">📷 Por foto</button>
+      <button class="btn" id="mValores" onclick="modo('valores')">🎨 Por valores (RGB, HEX, L*a*b*)</button>
+      <button class="btn" id="mCoralis" onclick="modo('coralis')">📡 Leitura do Coralis</button>
+    </div>
+    <div id="entrada"></div>
+  </div>
+  <div id="resultado"></div>
+</div>
+
+<!-- CONSULTAS -->
+<div class="page" id="pg-cons">
+  <div class="card"><div class="bar"><h2 style="margin:0;flex:1">Consultas enviadas ao laboratório</h2>
+    <label class="small" id="consSoMinhasL" style="display:none"><input type="checkbox" id="consSoMinhas"> só as minhas</label>
+    <button class="btn" onclick="consCarregar()">Atualizar</button></div>
+    <div class="small soft">O número CF-xxxx aparece quando o laboratório recebe a consulta (sincronização de hora em hora, das 7h às 18h).</div></div>
+  <div id="consLista"></div>
+</div>
+
+<!-- login -->
+<div class="overlay" id="login"><div class="modal">
+  <h2>Portal de cores — Bela Vista</h2><p class="small soft" style="margin-bottom:12px">Entre com o mesmo e-mail e senha do Dashboard.</p>
+  <div class="field"><label>E-mail</label><input class="inp" id="lgEmail" type="email" autocomplete="username"></div>
+  <div class="field"><label>Senha</label><input class="inp" id="lgSenha" type="password" autocomplete="current-password"></div>
+  <div class="small bad" id="lgErr" style="min-height:18px"></div>
+  <button class="btn btn-p" id="lgBtn" style="width:100%" onclick="entrar()">Entrar</button></div></div>
+<!-- troca de senha -->
+<div class="overlay" id="troca"><div class="modal">
+  <h2>Trocar senha</h2><p class="small soft" id="trEmail"></p>
+  <div class="field"><label>Senha atual</label><input class="inp" id="trAtual" type="password" autocomplete="current-password"></div>
+  <div class="field"><label>Nova senha (mínimo 8 caracteres)</label><input class="inp" id="trNova" type="password" autocomplete="new-password"></div>
+  <div class="field"><label>Confirme a nova senha</label><input class="inp" id="trConf" type="password" autocomplete="new-password"></div>
+  <div class="small bad" id="trErr" style="min-height:18px"></div>
+  <div class="bar"><button class="btn btn-p" id="trBtn" onclick="trocaConfirmar()">Trocar</button><button class="btn" id="trCancelar" onclick="fechar('troca')">Cancelar</button></div></div></div>
+<!-- detalhe -->
+<div class="overlay" id="det" onclick="if(event.target===this)fechar('det')"><div class="modal l" id="detBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* Laboratório Bela Vista — cálculo da "cor mais próxima" do PORTAL (09/11/2026).
+   Mesmo cálculo da aba "Cor mais próxima" do módulo Desenvolvimento de Cor (pfSugestoes, pvPadroesProximos,
+   pfProdutos, pfAvaliarArea, pvAvisos, pfAnaliseTexto), só que sobre um pacote de dados já montado (D), sem dosagem.
+   Usado em dois lugares, com o MESMO código:
+     • portal.html (no navegador, embutido) — D vem do Supabase (portal_dados), nomes SEM cliente;
+     • portal_sync.js (no Lab01) — D montado na hora com os nomes completos, para gravar a consulta no módulo.
+   D = { cores:[{k, n, r, ct, c, t, tp, L, a, b, m, p:[[chave, produto]], v}], ref:[{i, m, c, n, o, rgb, d}],
+         padroes:[{u, L, a, b, k, cor, pr, nome?}], familias:[{k, n}], bases:{branca|clara|escura:{comBase, comAviso}} } */
+(function (raiz) {
+  'use strict';
+  const PC = {};
+  PC.labParaRgb = function (L, a, b) {
+    const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
+    const inv = t => { const t3 = t * t * t; return t3 > 0.008856 ? t3 : (t - 16 / 116) / 7.787; };
+    const X = 0.94811 * inv(fx), Y = 1.0 * inv(fy), Z = 1.07304 * inv(fz);
+    const r = 3.2406 * X - 1.5372 * Y - 0.4986 * Z, g = -0.9689 * X + 1.8758 * Y + 0.0415 * Z, bl = 0.0557 * X - 0.2040 * Y + 1.0570 * Z;
+    const gam = c => { c = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(Math.max(c, 0), 1 / 2.4) - 0.055; return Math.max(0, Math.min(255, Math.round(c * 255))); };
+    return [gam(r), gam(g), gam(bl)];
+  };
+  PC.rgbParaLab = function (rgb) {
+    const lin = u => { u = Math.max(0, Math.min(255, Number(u) || 0)) / 255; return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); };
+    const r = lin(rgb[0]), g = lin(rgb[1]), b = lin(rgb[2]);
+    const X = 0.4124 * r + 0.3576 * g + 0.1805 * b, Y = 0.2126 * r + 0.7152 * g + 0.0722 * b, Z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+    const f = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+    const fx = f(X / 0.94811), fy = f(Y), fz = f(Z / 1.07304);
+    return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+  };
+  PC.de00 = function (p, q) {
+    const rad = Math.PI / 180, deg = 180 / Math.PI;
+    const C1 = Math.hypot(p.a, p.b), C2 = Math.hypot(q.a, q.b), Cm = (C1 + C2) / 2;
+    const G = 0.5 * (1 - Math.sqrt(Math.pow(Cm, 7) / (Math.pow(Cm, 7) + Math.pow(25, 7))));
+    const a1 = (1 + G) * p.a, a2 = (1 + G) * q.a, C1p = Math.hypot(a1, p.b), C2p = Math.hypot(a2, q.b);
+    const h1 = (Math.atan2(p.b, a1) * deg + 360) % 360, h2 = (Math.atan2(q.b, a2) * deg + 360) % 360;
+    const dL = q.L - p.L, dC = C2p - C1p;
+    let dh = 0; if (C1p * C2p) { dh = h2 - h1; if (dh > 180) dh -= 360; else if (dh < -180) dh += 360; }
+    const dH = 2 * Math.sqrt(C1p * C2p) * Math.sin(dh * rad / 2);
+    const Lm = (p.L + q.L) / 2, Cmp = (C1p + C2p) / 2;
+    let hm = h1 + h2; if (C1p * C2p) { hm = Math.abs(h1 - h2) <= 180 ? (h1 + h2) / 2 : (h1 + h2 < 360 ? (h1 + h2 + 360) / 2 : (h1 + h2 - 360) / 2); }
+    const T = 1 - 0.17 * Math.cos((hm - 30) * rad) + 0.24 * Math.cos(2 * hm * rad) + 0.32 * Math.cos((3 * hm + 6) * rad) - 0.20 * Math.cos((4 * hm - 63) * rad);
+    const SL = 1 + 0.015 * Math.pow(Lm - 50, 2) / Math.sqrt(20 + Math.pow(Lm - 50, 2)), SC = 1 + 0.045 * Cmp, SH = 1 + 0.015 * Cmp * T;
+    const RT = -2 * Math.sqrt(Math.pow(Cmp, 7) / (Math.pow(Cmp, 7) + Math.pow(25, 7))) * Math.sin(60 * Math.exp(-Math.pow((hm - 275) / 25, 2)) * rad);
+    return Math.sqrt(Math.pow(dL / SL, 2) + Math.pow(dC / SC, 2) + Math.pow(dH / SH, 2) + RT * (dC / SC) * (dH / SH));
+  };
+  PC.faixa = d => d < 1 ? ['praticamente igual', 'ok'] : d < 2 ? ['muito próxima', 'ok'] : d < 3.5 ? ['próxima', ''] : d < 6 ? ['parecida', 'soft'] : ['diferente', 'bad'];
+  PC.num = (v, d) => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d == null ? 2 : d).replace('.', ',');
+  PC.LUZ = [['difusa', 'Nublado / luz difusa (melhor)'], ['sol', 'Sol direto'], ['sombra', 'Sombra'], ['artificial', 'Iluminação artificial (lâmpada)'], ['naosei', 'Não sei']];
+  PC.TITULO = { foto: 'Consulta por foto', valores: 'Consulta por valores', coralis: 'Consulta por leitura do Coralis' };
+  PC.AVISO_TXT = {
+    foto: 'Referência por FOTO: ponto de partida, não aprova cor. Confirmar com placa/amostra na cabine.',
+    valores: 'Referência por VALORES: RGB/HEX é cor de tela (triagem); L*a*b* medido compara de verdade. A aprovação é sempre na placa e no Coralis.',
+    coralis: 'Referência por LEITURA DO CORALIS (D65/10°): comparação medida. A aprovação final é sempre na placa, na cabine de luz.' };
+
+  // índices do pacote (uma vez por pacote)
+  function idx(D) {
+    if (D._idx) return D._idx;
+    const porK = new Map(); (D.cores || []).forEach(c => porK.set(c.k, c));
+    const refLab = (D.ref || []).map(r => PC.rgbParaLab(r.rgb));
+    const fam = new Map(); (D.familias || []).forEach(f => fam.set(f.k, f.n));
+    Object.defineProperty(D, '_idx', { value: { porK, refLab, fam }, enumerable: false });
+    return D._idx;
+  }
+  PC.corLab = c => (c && c.L != null) ? { L: c.L, a: c.a, b: c.b } : null;
+  PC.corRgb = c => c && c.L != null ? PC.labParaRgb(c.L, c.a, c.b) : null;
+  PC.produtosDaCor = c => [...new Set((c.p || []).map(x => x[1]))];
+
+  // = pfSugestoes do módulo
+  PC.sugestoes = function (alvo, D) {
+    const I = idx(D), comDos = [], semDos = [], marcas = [];
+    (D.cores || []).forEach(c => {
+      if (c.L == null) return;
+      const o = { k: c.k, nome: c.r || c.n, de: PC.de00(alvo, c), medido: !!c.m, produtos: PC.produtosDaCor(c) };
+      if ((c.p || []).length) comDos.push(o); else if (c.ct) semDos.push(o);
+    });
+    (D.ref || []).forEach((r, j) => {
+      const de = PC.de00(alvo, I.refLab[j]);
+      const o = { ref: r.i, nome: r.m + ' ' + r.c + (r.n ? ' ' + r.n : ''), colecao: r.o, de, dosagemEm: (r.d || []).slice(0, 3) };
+      if (/Bela Vista/i.test(r.m)) semDos.push(Object.assign(o, { k: '' })); else marcas.push(o);
+    });
+    const top = (l, n) => l.sort((a, b) => a.de - b.de).slice(0, n).map(o => Object.assign(o, { de: Math.round(o.de * 10) / 10 }));
+    return { comDos: top(comDos, 6), semDos: top(semDos, 4), marcas: top(marcas, 5) };
+  };
+  // = pvPadroesProximos (leitura × leitura; só quando o alvo é medido)
+  PC.padroesProximos = function (lab, D, pular) {
+    return (D.padroes || []).filter(x => x.u !== pular).map(x => ({
+      uid: x.u, nome: x.nome || '', lab: { L: x.L, a: x.a, b: x.b }, de: Math.round(PC.de00(lab, x) * 10) / 10, medido: true,
+      k: x.k || '', cor: x.cor || '', produto: x.pr || '' })).sort((a, b) => a.de - b.de).slice(0, 5);
+  };
+  // = pfProdutos
+  PC.produtos = function (a, D) {
+    const I = idx(D), nomeFam = k => I.fam.get(k) || k;
+    const prontos = new Map();
+    (a.sug && a.sug.comDos || []).filter(o => o.de < 3).forEach(o => {
+      const c = I.porK.get(o.k); if (!c) return;
+      (c.p || []).forEach(([k, prod]) => { if (!k || prontos.has(k)) return; prontos.set(k, { k, produto: prod || nomeFam(k), cor: c.n, de: o.de }); });
+    });
+    let tom = '', origemTom = '';
+    for (const o of (a.sug && a.sug.comDos || []).filter(o => o.de < 4)) {
+      const c = I.porK.get(o.k); if (!c) continue;
+      if (c.t) { tom = c.t; origemTom = 'tom da ' + c.n; break; }
+      if (c.tp) { tom = c.tp; origemTom = 'provável, pelo pigmento da ' + c.n; break; }
+    }
+    const b = tom && D.bases && D.bases[tom] || { comBase: [], comAviso: [] };
+    return { prontos: [...prontos.values()], tom, origemTom, comBase: (b.comBase || []).slice(), comAviso: (b.comAviso || []).slice() };
+  };
+  // = pfAvaliarArea (foto)
+  PC.avisosFoto = function (a, temBranco) {
+    const av = [];
+    if (a.lab.L < 30) av.push('Cor escura: a foto engana mais (o ΔE pode passar de 8). Confirme com amostra física.');
+    if (a.dispL > 6) av.push('Área irregular (luz desigual ou textura forte): se der, marque um pedaço mais uniforme.');
+    if (a.luz === 'sol') av.push('Sol direto clareia e desbota: olhe também cores um pouco mais escuras e mais fortes.');
+    if (a.luz === 'sombra') av.push('Em sombra a foto escurece: olhe também cores mais claras que a sugerida.');
+    if (a.luz === 'artificial') av.push('Lâmpada quente puxa para o amarelo/vermelho: olhe também cores mais neutras (mais cinza).');
+    if (!temBranco) av.push('Sem branco de referência: o tom da luz da foto não foi corrigido.');
+    return av;
+  };
+  // = pvAvisos (valores / Coralis)
+  PC.avisosValores = function (a, origem, digitado) {
+    const av = [];
+    if (!a.medido) av.push('Valor de tela (RGB/HEX): serve para triagem. Para comparar de verdade, leia a amostra no Coralis.');
+    if (!a.medido && a.lab.L < 30) av.push('Cor escura em valor de tela: a diferença real pode ser bem maior. Confirme com amostra física.');
+    if (a.medido && (origem === 'valores' || digitado)) av.push('L*a*b* digitado: confira se foi medido em D65/10° (o mesmo do Coralis) — outro iluminante/observador muda o ΔE.');
+    if (origem === 'coralis' && !(a.sug && a.sug.padroes && a.sug.padroes.length)) av.push('Nenhum padrão do Coralis gravado para comparar leitura × leitura.');
+    return av;
+  };
+  // área de foto: rgb já corrigido → sug, avisos, produtos (= pfCalcular)
+  PC.calcularFoto = function (a, D, temBranco) {
+    const l = PC.rgbParaLab(a.rgb); a.lab = { L: l.L, a: l.a, b: l.b };
+    a.sug = PC.sugestoes(Object.assign({ medido: false }, a.lab), D);
+    a.avisos = PC.avisosFoto(a, temBranco);
+    a.prod = PC.produtos(a, D);
+    return a;
+  };
+  // área de valores/Coralis (= pvCalcular)
+  PC.calcularValor = function (a, D, origem) {
+    a.rgb = PC.labParaRgb(a.lab.L, a.lab.a, a.lab.b);
+    a.sug = PC.sugestoes(Object.assign({ medido: !!a.medido }, a.lab), D);
+    if (a.medido) a.sug.padroes = PC.padroesProximos(a.lab, D, a.crlUid || '');
+    a.avisos = PC.avisosValores(a, origem, !!a.digitado);
+    a.prod = PC.produtos(a, D);
+    return a;
+  };
+  const _hue = o => { const h = Math.atan2(o.b, o.a) * 180 / Math.PI; return h < 0 ? h + 360 : h; };
+  const _croma = o => Math.hypot(o.a, o.b);
+  PC.coerencia = function (areas) {
+    const out = [], num = PC.num;
+    for (let i = 0; i < areas.length; i++) for (let j = i + 1; j < areas.length; j++) {
+      const p = areas[i].lab, q = areas[j].lab, cp = _croma(p), cq = _croma(q);
+      const dh = Math.abs(_hue(p) - _hue(q)), dH = Math.min(dh, 360 - dh);
+      const mesmoTom = (cp < 6 && cq < 6) || (Math.abs(cp - cq) < 5 && dH < 25);
+      if (mesmoTom && Math.abs(p.L - q.L) > 6)
+        out.push(`"${areas[i].nome}" e "${areas[j].nome}" têm o mesmo tom com claridade bem diferente (L ${num(p.L, 0)} × ${num(q.L, 0)}). Se forem a mesma pintura, é a luz da foto — o valor real fica entre as duas.`);
+    }
+    return out;
+  };
+  // = pfAnaliseTexto
+  PC.analiseTexto = function (c) {
+    const L = [], num = PC.num;
+    const og = c.origem || 'foto', tl = o => (og === 'foto' || !c.areas[0] || !c.areas[0].medido || !o.medido) ? '~' : '';
+    L.push(PC.TITULO[og] + (c.numero ? ' ' + c.numero : '') + (c.cliente ? ' — ' + c.cliente : '') + (c.representante ? ' · representante: ' + c.representante : ''));
+    L.push(PC.AVISO_TXT[og]);
+    c.areas.forEach(a => {
+      L.push(''); L.push(`▸ ${a.nome} (L ${num(a.lab.L, 1)} · a ${num(a.lab.a, 1)} · b ${num(a.lab.b, 1)} · ${og === 'foto' ? 'luz: ' + (PC.LUZ.find(x => x[0] === a.luz) || [, '—'])[1] : (a.fonte || '') + ' · ' + (a.medido ? 'medido' : 'tela')})`);
+      const s = a.sug, m1 = s.comDos[0];
+      if (s.padroes && s.padroes.length) L.push(`Padrões do Coralis mais próximos (leitura × leitura): ${s.padroes.slice(0, 3).map(o => (o.nome || 'padrão medido') + ' ΔE ' + num(o.de, 1) + (o.cor ? ' (' + o.cor + (o.produto ? ' · ' + o.produto : '') + ')' : '')).join(' · ')}`);
+      if (m1) L.push(m1.de < 3 ? `Ponto de partida: ${m1.nome} (ΔE ${tl(m1)}${num(m1.de, 1)}) — dosagem em ${m1.produtos.join(', ')}`
+        : m1.de < 6 ? `Nenhuma cor com dosagem bem próxima; a mais perto é ${m1.nome} (ΔE ${tl(m1)}${num(m1.de, 1)}) — provável desenvolvimento novo a partir dela`
+        : `Nada com dosagem parecido (mais perto ${m1.nome}, ΔE ${tl(m1)}${num(m1.de, 1)}) — desenvolvimento novo`);
+      s.comDos.slice(1, 4).forEach(o => L.push(`   também: ${o.nome} (ΔE ${tl(o)}${num(o.de, 1)})${o.produtos.length ? ' · ' + o.produtos.join(', ') : ''}`));
+      if (s.semDos[0] && s.semDos[0].de < 4) L.push(`Catálogo Bela Vista (sem dosagem): ${s.semDos.slice(0, 2).map(o => o.nome + ' ~' + num(o.de, 1)).join(' · ')}`);
+      if (s.marcas.length) L.push(`Outras marcas: ${s.marcas.slice(0, 3).map(o => o.nome + ' ~' + num(o.de, 1) + (o.dosagemEm.length ? ' (temos: ' + o.dosagemEm[0] + ')' : '')).join(' · ')}`);
+      const pr = a.prod || { prontos: [] };
+      if (pr.prontos.length) L.push(`Produto — já sai em: ${pr.prontos.map(x => x.produto + ' (' + x.cor + ')').join(' · ')}`);
+      if (pr.tom) L.push(`Tom provável: ${pr.tom} (${pr.origemTom})${pr.comAviso && pr.comAviso.length ? ' · sem base própria para este tom: ' + pr.comAviso.map(x => x.produto).join(', ') : ''}`);
+      else L.push('Tom: a definir (nenhuma cor próxima com tom conhecido) — qualquer produto, a base sai no desenvolvimento');
+      (a.avisos || []).forEach(t => L.push('   ⚠ ' + t));
+    });
+    const co = PC.coerencia(c.areas); if (co.length) { L.push(''); co.forEach(t => L.push('⚠ ' + t)); }
+    return L.join('\n');
+  };
+  // espectro digitado: "400:12,3 ..." ou só os valores (400 a 700 nm de 10 em 10, ou 400–830)
+  PC.lerEspectro = function (t) {
+    const nums = (String(t || '').match(/-?\d+(?:[.,]\d+)?/g) || []).map(x => Number(x.replace(',', '.')));
+    if (nums.length < 31) return null;
+    if (nums.length >= 62 && nums[0] === 400 && nums[2] === 410) { const v = []; for (let i = 1; i < nums.length; i += 2) v.push(nums[i]); return { ini: 400, passo: 10, v }; }
+    if (nums.some(x => x < -5 || x > 200)) return null;
+    return { ini: 400, passo: 10, v: nums };
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = PC; else raiz.PC = PC;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* Laboratório Bela Vista — leitura direta do espectrofotômetro Coralis HPS PRO por Bluetooth (30/10/2026).
+ *
+ * Arquivo NOVO e independente (nome com prefixo comum_ porque o server.js só serve .js que comecem assim). Não altera nada do que já existe: o coralis.js (servidor, que lê a pasta de
+ * rede) e o comum_coralis.js (tela) continuam exatamente como estão. Este módulo é um caminho a mais, que
+ * fala com o aparelho pelo navegador, sem passar pelo aplicativo de leitura nem pelo cabo USB.
+ *
+ * COMO FUNCIONA
+ *   O HPS PRO expõe uma ponte serial transparente por BLE: serviço 0xFFE0, característica 0xFFE1
+ *   (notificação + escrita). O Chrome alcança esse serviço pela Web Bluetooth — exige HTTPS (o Lab01 já
+ *   roda em HTTPS na 3444) e um clique do usuário para abrir o seletor de aparelhos.
+ *
+ * QUADRO (10 bytes), decifrado do CHNSpec.BaseClass.dll do ColorExpert e conferido contra o aparelho:
+ *   [0] 0xBB · [1] comando · [2..7] parâmetros · [8] 0xFF · [9] soma dos bytes [0..8] truncada em 1 byte
+ *   Comandos usados: 0x01 medir · 0x02 ler a medição · 0x12 identificar o aparelho.
+ *
+ * RESPOSTA (250 bytes), picada em notificações de 20 bytes (MTU do BLE), com o mesmo checksum no fim:
+ *   [0..7]    eco: BB <cmd> 00 00 <início 2 bytes, big-endian> <passo> <nº de pontos>
+ *   [8..183]  espectro: 44 posições de float (4 bytes, little-endian); só as primeiras <nº de pontos> valem
+ *   [184..195] L*, a*, b* — 3 floats de 4 bytes, little-endian
+ *   [248..249] 0xFF + checksum
+ *   Na identificação (0x12) o corpo traz, em ASCII: série (7), modelo (37), série (67), firmware (97),
+ *   hardware (127).
+ *
+ * O registro devolvido por medir() tem o MESMO formato dos que vêm do coralis.js, para poder entrar em
+ * state.coralis sem conversão: {uid, nome, tipo, em, L, a, b, modo, ilum, serie, espectro:{ini,passo,v}, ...}.
+ * A diferença é fonte:'ble'.
+ *
+ * ATENÇÃO: o aparelho aceita UM mestre por vez. Com o ColorExpert conectado a ele, o navegador não entra.
+ */
+'use strict';
+
+const CBLE_SERVICO = 0xffe0;
+const CBLE_CARACT = 0xffe1;
+const CBLE_CMD = { MEDIR: 0x01, LER: 0x02, INFO: 0x12 };
+const CBLE_TAM_RESPOSTA = 250;        // o aparelho responde sempre com 250 bytes
+const CBLE_OFS_ESPECTRO = 8;
+const CBLE_MAX_PONTOS = 44;           // o campo do espectro é fixo: 44 posições (400..830 nm de 10 em 10)
+const CBLE_OFS_LAB = CBLE_OFS_ESPECTRO + CBLE_MAX_PONTOS * 4;   // 184
+const CBLE_SERIE_CONHECIDA = 'CM132X0893';
+const CBLE_RELER = 3;                 // quantas vezes pede de novo o 0x02 quando a resposta vem zerada (31/10/2026)
+
+/* ---------------------------------------------------------------- quadros */
+
+function cbleChecksum(bytes, ate) {
+  let s = 0;
+  const n = ate == null ? bytes.length : ate;
+  for (let i = 0; i < n; i++) s = (s + bytes[i]) & 0xff;
+  return s;
+}
+
+// Monta o quadro de 10 bytes. params = até 6 bytes (o resto vira zero).
+function cbleQuadro(cmd, params) {
+  const q = new Uint8Array(10);
+  q[0] = 0xbb;
+  q[1] = cmd & 0xff;
+  const p = params || [];
+  for (let i = 0; i < 6 && i < p.length; i++) q[2 + i] = p[i] & 0xff;
+  q[8] = 0xff;
+  q[9] = cbleChecksum(q, 9);
+  return q;
+}
+
+// Um quadro está completo quando termina em 0xFF seguido do checksum que fecha.
+function cbleQuadroCompleto(bytes) {
+  if (bytes.length < 10) return false;
+  if (bytes[bytes.length - 2] !== 0xff) return false;
+  return cbleChecksum(bytes, bytes.length - 1) === bytes[bytes.length - 1];
+}
+
+/* ------------------------------------------------------------ decodificação */
+
+function cbleFloat(bytes, ofs) {
+  const dv = new DataView(bytes.buffer || bytes, (bytes.byteOffset || 0) + ofs, 4);
+  return dv.getFloat32(0, true);          // little-endian
+}
+
+function cbleAscii(bytes, ofs, max) {
+  let s = '';
+  for (let i = ofs; i < ofs + max && i < bytes.length; i++) {
+    const c = bytes[i];
+    if (c === 0) break;
+    if (c < 32 || c > 126) break;
+    s += String.fromCharCode(c);
+  }
+  return s.trim();
+}
+
+const cbleR4 = x => Math.round(Number(x) * 10000) / 10000;
+
+// Grade de medição a partir do cabeçalho: início (2 bytes, big-endian), passo, nº de pontos.
+function cbleGrade(bytes) {
+  const ini = (bytes[4] << 8) | bytes[5];
+  const passo = bytes[6];
+  const n = bytes[7];
+  if (!ini || !passo || !n || n > CBLE_MAX_PONTOS) return null;
+  return { ini, passo, n };
+}
+
+// Medição "zerada": L* abaixo de 1 ou refletância toda abaixo de 1%. Acontece quando o 0x02 é respondido antes de o
+// aparelho terminar a medição — vem L ≈ 0,00 e a*, b* de ±0,05 (31/10/2026: REG 1795 PRATA e REG 1707 MARGARIDA
+// entraram na média com uma leitura assim e o L caiu de ~75 para ~50). A textura mais escura lida até hoje tem L 11 e
+// refletância máxima 2,2%; L* < 1 é preto absoluto, não existe em placa.
+const CBLE_L_MIN = 1, CBLE_R_MIN = 1;
+function cbleMedicaoVazia(m) {
+  if (!m || !isFinite(m.L) || Number(m.L) < CBLE_L_MIN) return true;
+  const v = m.espectro && m.espectro.v;
+  return !!(v && v.length && v.every(x => Math.abs(Number(x)) < CBLE_R_MIN));
+}
+
+// Resposta do 0x02 → {L, a, b, espectro:{ini, passo, v}}
+function cbleLerMedicao(bytes) {
+  if (!cbleQuadroCompleto(bytes)) throw new Error('resposta incompleta ou com checksum errado');
+  if (bytes[0] !== 0xbb || bytes[1] !== CBLE_CMD.LER) throw new Error('resposta não é de uma medição');
+  const g = cbleGrade(bytes);
+  if (!g) throw new Error('o aparelho não informou a grade de medição');
+  if (bytes.length < CBLE_OFS_LAB + 12) throw new Error('resposta curta demais para trazer L*a*b*');
+  const v = [];
+  for (let i = 0; i < g.n; i++) v.push(cbleR4(cbleFloat(bytes, CBLE_OFS_ESPECTRO + 4 * i)));
+  const L = cbleR4(cbleFloat(bytes, CBLE_OFS_LAB));
+  const a = cbleR4(cbleFloat(bytes, CBLE_OFS_LAB + 4));
+  const b = cbleR4(cbleFloat(bytes, CBLE_OFS_LAB + 8));
+  if (![L, a, b].every(x => isFinite(x))) throw new Error('L*a*b* inválido na resposta');
+  const med = { L, a, b, espectro: { ini: g.ini, passo: g.passo, v } };
+  if (cbleMedicaoVazia(med)) {          // antes da faixa: L −0,004 também é "zerada" (pede de novo), não erro
+    const e = new Error('o aparelho devolveu a medição zerada (ainda não tinha terminado de medir)');
+    e.vazia = true; throw e;
+  }
+  if (L < 0 || L > 100) throw new Error('L* fora da faixa (0 a 100): ' + L);
+  return med;
+}
+
+// Resposta do 0x12 → {serie, modelo, firmware, hardware}
+function cbleLerInfo(bytes) {
+  if (!cbleQuadroCompleto(bytes)) throw new Error('resposta incompleta ou com checksum errado');
+  if (bytes[0] !== 0xbb || bytes[1] !== CBLE_CMD.INFO) throw new Error('resposta não é de identificação');
+  return {
+    serie: cbleAscii(bytes, 7, 30),
+    modelo: cbleAscii(bytes, 37, 30),
+    firmware: cbleAscii(bytes, 97, 30),
+    hardware: cbleAscii(bytes, 127, 30),
+  };
+}
+
+// Média de várias medições da mesma placa (é o que o colorista faz na mão em superfície rugosa).
+function cbleMedia(leituras) {
+  const ok = (leituras || []).filter(x => x && isFinite(x.L) && !cbleMedicaoVazia(x));   // zerada nunca entra na média
+  if (!ok.length) return null;
+  const m = c => cbleR4(ok.reduce((s, x) => s + x[c], 0) / ok.length);
+  const base = ok[0].espectro;
+  let espectro = null;
+  if (base && ok.every(x => x.espectro && x.espectro.v.length === base.v.length)) {
+    espectro = { ini: base.ini, passo: base.passo,
+      v: base.v.map((_, i) => cbleR4(ok.reduce((s, x) => s + x.espectro.v[i], 0) / ok.length)) };
+  }
+  const amp = c => cbleR4(Math.max(...ok.map(x => x[c])) - Math.min(...ok.map(x => x[c])));
+  return { L: m('L'), a: m('a'), b: m('b'), espectro, n: ok.length,
+    amplitude: { L: amp('L'), a: amp('a'), b: amp('b') } };
+}
+
+// Registro no formato que o resto do sistema já entende (igual ao que o coralis.js produz).
+function cbleRegistro(med, opcoes) {
+  const o = opcoes || {};
+  const agora = new Date();
+  const dois = n => String(n).padStart(2, '0');
+  const local = agora.getFullYear() + '-' + dois(agora.getMonth() + 1) + '-' + dois(agora.getDate()) +
+    'T' + dois(agora.getHours()) + ':' + dois(agora.getMinutes()) + ':' + dois(agora.getSeconds());
+  return {
+    uid: 'ble-' + agora.getTime().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
+    nome: String(o.nome || ''),
+    tipo: o.tipo === 'amostra' ? 'amostra' : 'padrao',
+    em: local,
+    L: med.L, a: med.a, b: med.b,
+    modo: 'SCI',
+    uv: null,
+    ilum: 'D65/10°',
+    abertura: null,
+    serie: String(o.serie || CBLE_SERIE_CONHECIDA),
+    targetUid: String(o.targetUid || ''),
+    tol: null,
+    espectro: med.espectro || null,
+    obs: String(o.obs || ''),
+    arquivo: 'leitura direta (Bluetooth)',
+    fonte: 'ble',
+    repeticoes: med.n || 1,
+    amplitude: med.amplitude || null,
+  };
+}
+
+/* ------------------------------------------------------------------ conexão */
+/* Só roda no navegador. Em Node (os testes) esta parte fica de fora. */
+
+function cbleDisponivel() {
+  return typeof navigator !== 'undefined' && !!navigator.bluetooth;
+}
+
+function CoralisBLE() {
+  this.dispositivo = null;
+  this.caract = null;
+  this.buffer = [];
+  this.esperando = null;
+  this.ultimoEco = null;     // o quadro curto de 10 bytes que o aparelho manda ao conectar e ao medir
+}
+
+CoralisBLE.prototype._aoNotificar = function (ev) {
+  const dv = ev.target.value;
+  for (let i = 0; i < dv.byteLength; i++) this.buffer.push(dv.getUint8(i));
+  const bytes = Uint8Array.from(this.buffer);
+  if (!cbleQuadroCompleto(bytes)) return;
+  this.buffer = [];
+  if (bytes.length === 10) { this.ultimoEco = bytes; }          // eco/estado, não é resposta de dado
+  if (this.esperando) {
+    const e = this.esperando;
+    if (e.curto || bytes.length > 10) { this.esperando = null; clearTimeout(e.timer); e.resolver(bytes); }
+  }
+};
+
+CoralisBLE.prototype._esperar = function (ms, curto) {
+  const self = this;
+  return new Promise(function (resolver, rejeitar) {
+    const e = { resolver, curto: !!curto };
+    e.timer = setTimeout(function () {
+      if (self.esperando === e) self.esperando = null;
+      rejeitar(new Error('o aparelho não respondeu em ' + Math.round(ms / 1000) + ' s'));
+    }, ms);
+    self.esperando = e;
+  });
+};
+
+CoralisBLE.prototype.conectar = async function (todos) {
+  if (!cbleDisponivel()) {
+    throw new Error('este navegador não tem Web Bluetooth. Use o Chrome ou o Edge, num endereço https.');
+  }
+  // O aparelho anuncia com o número de série como nome (CM132X0893). O filtro por nome é o que
+  // funciona na prática; o serviço entra em optionalServices porque pode não vir no anúncio.
+  // Com todos=true a janela lista qualquer aparelho BLE por perto — escape para quando o anúncio
+  // vier sem nome e o filtro não pegar.
+  this.dispositivo = await navigator.bluetooth.requestDevice(todos
+    ? { acceptAllDevices: true, optionalServices: [CBLE_SERVICO] }
+    : { filters: [{ namePrefix: 'CM' }, { services: [CBLE_SERVICO] }], optionalServices: [CBLE_SERVICO] });
+  const self = this;
+  this.dispositivo.addEventListener('gattserverdisconnected', function () { self.caract = null; });
+  const servidor = await this.dispositivo.gatt.connect();
+  const servico = await servidor.getPrimaryService(CBLE_SERVICO);
+  this.caract = await servico.getCharacteristic(CBLE_CARACT);
+  this.buffer = [];
+  await this.caract.startNotifications();     // sem isto o aparelho responde e a resposta não chega
+  this.caract.addEventListener('characteristicvaluechanged', this._aoNotificar.bind(this));
+  return this.dispositivo.name || '';
+};
+
+CoralisBLE.prototype.conectado = function () {
+  return !!(this.caract && this.dispositivo && this.dispositivo.gatt && this.dispositivo.gatt.connected);
+};
+
+CoralisBLE.prototype.desconectar = function () {
+  try { if (this.dispositivo && this.dispositivo.gatt.connected) this.dispositivo.gatt.disconnect(); }
+  catch (e) { /* já estava fora */ }
+  this.caract = null;
+  this.buffer = [];
+};
+
+CoralisBLE.prototype._enviar = async function (cmd, params, msEspera, curto) {
+  if (!this.conectado()) throw new Error('aparelho desconectado');
+  this.buffer = [];
+  const espera = this._esperar(msEspera || 8000, curto);
+  await this.caract.writeValue(cbleQuadro(cmd, params));
+  return espera;
+};
+
+CoralisBLE.prototype.identificar = async function () {
+  return cbleLerInfo(await this._enviar(CBLE_CMD.INFO, [], 8000));
+};
+
+// Dispara a medição, espera o aparelho terminar e puxa o resultado. Se a resposta vier zerada (o aparelho ainda
+// medindo), espera mais um pouco e pede de novo — até 3 vezes — sem disparar outra medição.
+CoralisBLE.prototype.medirUma = async function (msAssentar) {
+  await this._enviar(CBLE_CMD.MEDIR, [], 10000, true);        // o aparelho confirma com o quadro curto
+  await new Promise(r => setTimeout(r, msAssentar == null ? 1200 : msAssentar));
+  for (let t = 0; ; t++) {
+    try { return cbleLerMedicao(await this._enviar(CBLE_CMD.LER, [], 10000)); }
+    catch (e) {
+      if (!e.vazia || t >= CBLE_RELER) throw e;
+      await new Promise(r => setTimeout(r, 800));
+    }
+  }
+};
+
+// Várias medições da mesma placa, com pausa entre elas. Devolve {leituras, media}.
+CoralisBLE.prototype.medir = async function (vezes, aoAndar) {
+  const n = Math.max(1, Math.min(10, vezes || 1));
+  const leituras = [];
+  for (let i = 0; i < n; i++) {
+    if (aoAndar) aoAndar(i + 1, n);
+    let m;
+    try { m = await this.medirUma(); }
+    catch (e) {
+      if (!e.vazia) throw e;
+      try { m = await this.medirUma(); }                       // dispara a medição mais uma vez
+      catch (e2) {
+        if (!e2.vazia) throw e2;
+        throw new Error('O aparelho devolveu a medição ' + (i + 1) + ' zerada duas vezes. Mantenha-o apoiado na placa e meça de novo — nada foi gravado.');
+      }
+    }
+    leituras.push(m);
+    if (i < n - 1) await new Promise(r => setTimeout(r, 800));
+  }
+  return { leituras, media: cbleMedia(leituras) };
+};
+
+/* ------------------------------------------------------------------ exporta */
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { cbleQuadro, cbleChecksum, cbleQuadroCompleto, cbleLerMedicao, cbleLerInfo,
+    cbleMedia, cbleMedicaoVazia, cbleRegistro, cbleGrade, CBLE_CMD, CBLE_OFS_LAB, CoralisBLE };
+}
+
+</script>
+<script>
+'use strict';
+const SUPABASE_URL = 'https://vnupchoemxegexxrrfzm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_p1B077XEMOVGKjvmyewRQw_2bMVDnS3';
+const SESSAO_KEY = 'bv_sessao_sb';                  // mesma sessão do Dashboard (mesmo endereço)
+const CACHE_KEY = 'bv_portal_cache_v1';
+const BUCKET = 'portal-fotos', FOTO_MAX = 1280;
+const ST = { enviada: '📨 Enviada — aguardando o laboratório', aguardando: '⏳ Recebida pelo laboratório', aprovada: '✅ Aprovada → desenvolvimento', descartada: '🗑 Encerrada' };
+const ORIG = { foto: '📷 foto', valores: '🎨 valores', coralis: '📡 Coralis' };
+const DASH_PERMS = ['cq', 'revisor', 'relatorio', 'cores', 'ensaios', 'usuarios'];
+let SESSAO = null, ACESSO = null, PERM = new Set(), D = null, PAG = '';
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+const num = PC.num;
+const rgbCss = (rgb) => rgb ? `rgb(${rgb.map((n) => Math.max(0, Math.min(255, Math.round(n)))).join(',')})` : '';
+function toast(t, ms) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => { el.style.display = 'none'; }, ms || 3500); }
+function abrir(id) { $(id).style.display = 'flex'; }
+function fechar(id) { $(id).style.display = 'none'; }
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); return true; } catch (e) { return false; } };
+
+/* ══ login (igual ao Dashboard) ══ */
+try { SESSAO = JSON.parse(lsGet(SESSAO_KEY) || 'null'); } catch (e) { SESSAO = null; }
+function gravarSessao(s) { SESSAO = s; lsSet(SESSAO_KEY, s ? JSON.stringify(s) : null); }
+async function authToken(corpo, grant) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=${grant}`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify(corpo) });
+  let j = {}; try { j = await r.json(); } catch (e) { j = {}; }
+  if (!r.ok || !j.access_token) { const e = new Error(j.error_description || j.msg || j.message || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+  return { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + (j.expires_in || 3600) * 1000, email: (j.user && j.user.email) || '' };
+}
+let _renovando = null;
+async function tokenValido() {
+  if (!SESSAO || !SESSAO.access_token) return null;
+  if (Date.now() < (SESSAO.expires_at || 0) - 60000) return SESSAO.access_token;
+  if (!_renovando) _renovando = (async () => {
+    try { const s = await authToken({ refresh_token: SESSAO.refresh_token }, 'refresh_token'); if (!s.email) s.email = SESSAO.email; gravarSessao(s); return s.access_token; }
+    catch (e) { if (e.status >= 400 && e.status < 500) sessaoExpirada(); return null; }
+    finally { setTimeout(() => { _renovando = null; }, 0); }
+  })();
+  return _renovando;
+}
+async function api(caminho, opc) {
+  opc = opc || {};
+  for (let t = 0; t < 2; t++) {
+    const tk = await tokenValido(); if (!tk) { sessaoExpirada(); throw new Error('Entre de novo.'); }
+    const h = Object.assign({ apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tk }, opc.headers || {});
+    const r = await fetch(SUPABASE_URL + caminho, { method: opc.method || 'GET', headers: h, body: opc.body });
+    if (r.status === 401 && t === 0) { if (SESSAO) SESSAO.expires_at = 0; continue; }
+    if (!r.ok) { let m = ''; try { const j = await r.json(); m = j.message || j.msg || j.error || ''; } catch (e) {} const er = new Error(m || ('HTTP ' + r.status)); er.status = r.status; throw er; }
+    return r;
+  }
+  sessaoExpirada(); throw new Error('Entre de novo.');
+}
+function sessaoExpirada() { gravarSessao(null); $('lgErr').textContent = 'Sua sessão expirou. Entre de novo.'; abrir('login'); }
+async function entrar() {
+  const email = $('lgEmail').value.trim(), senha = $('lgSenha').value;
+  if (!email || !senha) { $('lgErr').textContent = 'Preencha e-mail e senha.'; return; }
+  $('lgBtn').disabled = true; $('lgErr').textContent = 'Entrando…';
+  try { gravarSessao(await authToken({ email, password: senha }, 'password')); $('lgSenha').value = ''; fechar('login'); await iniciar(); }
+  catch (e) { $('lgErr').textContent = (e.status === 400 || e.status === 401) ? 'E-mail ou senha incorretos.' : (e.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos.' : 'Não foi possível entrar agora.'); }
+  finally { $('lgBtn').disabled = false; }
+}
+$('lgSenha').addEventListener('keydown', (e) => { if (e.key === 'Enter') entrar(); });
+async function sair() {
+  const tk = SESSAO && SESSAO.access_token; gravarSessao(null);
+  try { if (tk) await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tk } }); } catch (e) {}
+  location.reload();
+}
+function trocaAbrir(obrig) {
+  ['trAtual', 'trNova', 'trConf'].forEach((id) => { $(id).value = ''; });
+  $('trEmail').textContent = (SESSAO && SESSAO.email) || '';
+  $('trErr').textContent = obrig ? 'Primeiro acesso: troque a senha provisória por uma sua.' : '';
+  $('trCancelar').style.display = obrig ? 'none' : ''; abrir('troca');
+}
+async function trocaConfirmar() {
+  const atual = $('trAtual').value, nova = $('trNova').value, conf = $('trConf').value, err = $('trErr');
+  if (!atual || !nova || !conf) { err.textContent = 'Preencha os três campos.'; return; }
+  if (nova.length < 8) { err.textContent = 'A nova senha precisa ter pelo menos 8 caracteres.'; return; }
+  if (nova !== conf) { err.textContent = 'A confirmação não bate com a nova senha.'; return; }
+  if (nova === atual) { err.textContent = 'A nova senha precisa ser diferente da atual.'; return; }
+  $('trBtn').disabled = true; err.textContent = 'Conferindo…';
+  try {
+    let s; try { s = await authToken({ email: SESSAO.email, password: atual }, 'password'); } catch (e) { err.textContent = (e.status === 400 || e.status === 401) ? 'Senha atual incorreta.' : 'Não foi possível conferir agora.'; return; }
+    gravarSessao(s);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { method: 'PUT', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + s.access_token }, body: JSON.stringify({ password: nova }) });
+    if (!r.ok) { let j = {}; try { j = await r.json(); } catch (e) {} err.textContent = (j.error_code === 'weak_password') ? 'Senha fraca: use letras e números.' : 'Não foi possível trocar a senha.'; return; }
+    try { if (ACESSO && ACESSO.troca_senha) { await api('/functions/v1/acessos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'senha_trocada' }) }); ACESSO.troca_senha = false; } } catch (e) {}
+    fechar('troca'); toast('Senha trocada.');
+  } finally { $('trBtn').disabled = false; }
+}
+
+/* ══ início ══ */
+async function iniciar() {
+  if (!SESSAO || !(await tokenValido())) { abrir('login'); return; }
+  $('hdrR').style.display = 'flex'; $('hdrEmail').textContent = SESSAO.email || '';
+  try { const j = await (await api('/rest/v1/acesso_usuarios?select=*')).json(); ACESSO = j[0] || null; } catch (e) { ACESSO = null; }
+  PERM = new Set(ACESSO && ACESSO.ativo ? (ACESSO.permissoes || []) : []);
+  const temDash = DASH_PERMS.some((p) => PERM.has(p));
+  $('lnkDash').style.display = temDash ? '' : 'none';
+  if (ACESSO && ACESSO.troca_senha) trocaAbrir(true);
+  const pags = { cat: PERM.has('portal_catalogo'), prox: PERM.has('portal_proxima'), cons: PERM.has('portal_proxima') || PERM.has('portal_consultas_todas') };
+  document.querySelectorAll('.nb').forEach((b) => { b.style.display = pags[b.dataset.pg] ? '' : 'none'; });
+  const primeira = ['cat', 'prox', 'cons'].find((p) => pags[p]);
+  if (!primeira) { $('semAcesso').style.display = 'block'; $('semAcessoDash').style.display = temDash ? '' : 'none'; return; }
+  $('nav').style.display = 'flex';
+  if (pags.cat || pags.prox) { $('carregando').style.display = 'block'; try { await carregarDados(); } catch (e) { $('carregando').textContent = 'Não foi possível carregar as cores: ' + e.message; return; } $('carregando').style.display = 'none'; }
+  if (PERM.has('portal_consultas_todas')) $('consSoMinhasL').style.display = '';
+  irPara(primeira);
+}
+function irPara(p) {
+  PAG = p;
+  document.querySelectorAll('.page').forEach((x) => x.classList.toggle('on', x.id === 'pg-' + p));
+  document.querySelectorAll('.nb').forEach((b) => b.classList.toggle('on', b.dataset.pg === p));
+  if (p === 'cat') catDesenhar(true);
+  if (p === 'prox' && !$('entrada').innerHTML) modo(PERM.has('portal_proxima') ? 'foto' : '');
+  if (p === 'cons') consCarregar();
+}
+
+/* ══ dados do portal (cache local pela data de publicação) ══ */
+async function carregarDados() {
+  const vers = await (await api('/rest/v1/portal_dados?select=chave,atualizado_em')).json();
+  const quero = ['cores', 'ref', 'meta'].concat(PERM.has('portal_proxima') ? ['padroes'] : []);
+  let cache = null; try { cache = JSON.parse(lsGet(CACHE_KEY) || 'null'); } catch (e) { cache = null; }
+  if (!cache || cache.email !== (SESSAO && SESSAO.email)) cache = { email: SESSAO && SESSAO.email, v: {}, d: {} };
+  const falta = quero.filter((k) => { const v = vers.find((x) => x.chave === k); return v && (cache.v[k] !== v.atualizado_em || !cache.d[k]); });
+  if (falta.length) {
+    const linhas = await (await api(`/rest/v1/portal_dados?select=chave,valor,atualizado_em&chave=in.(${falta.join(',')})`)).json();
+    linhas.forEach((l) => { cache.v[l.chave] = l.atualizado_em; cache.d[l.chave] = l.valor; });
+    if (!lsSet(CACHE_KEY, JSON.stringify(cache))) lsSet(CACHE_KEY, null);
+  }
+  const meta = cache.d.meta || {};
+  D = { cores: cache.d.cores || [], ref: cache.d.ref || [], padroes: cache.d.padroes || [], familias: meta.familias || [], bases: meta.bases || {} };
+  const s = vers.find((x) => x.chave === 'sync');
+  D.atualizado = s ? s.atualizado_em : (vers.find((x) => x.chave === 'cores') || {}).atualizado_em;
+  D.refPorI = new Map(D.ref.map((r) => [r.i, r])); D.corPorK = new Map(D.cores.map((c) => [c.k, c]));
+  $('catProd').innerHTML = '<option value="">em qualquer produto</option>' + D.familias.map((f) => `<option value="${esc(f.k)}">${esc(f.n)}</option>`).join('');
+  $('catMarca').innerHTML = '<option value="">todas as marcas</option>' + [...new Set(D.ref.map((r) => r.m))].sort().map((m) => `<option>${esc(m)}</option>`).join('');
+}
+const dataBR = (s) => s ? new Date(s).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+/* ══ catálogo ══ */
+let CAT_N = 120;
+['catBusca', 'catFonte', 'catTom', 'catDesenv', 'catProd', 'catMarca', 'catTemos'].forEach((id) => $(id).addEventListener(id === 'catBusca' ? 'input' : 'change', () => { clearTimeout(catDesenhar._t); catDesenhar._t = setTimeout(() => catDesenhar(true), 120); }));
+$('catMais').addEventListener('click', () => { CAT_N += 120; catDesenhar(false); });
+function catLista() {
+  const q = norm($('catBusca').value);
+  if ($('catFonte').value === 'ref') {
+    const m = $('catMarca').value, temos = $('catTemos').checked;
+    return D.ref.filter((r) => (!m || r.m === m) && (!temos || (r.d && r.d.length)) && (!q || norm(r.m + ' ' + r.c + ' ' + r.c.replace(/ /g, '') + ' ' + r.n + ' ' + r.o).includes(q)));
+  }
+  const tom = $('catTom').value, des = $('catDesenv').checked, pk = $('catProd').value;
+  return D.cores.filter((c) => (!tom || c.t === tom) && (!des || c.p.length) && (!pk || c.p.some((p) => p[0] === pk))
+    && (!q || norm(c.n + ' ' + (c.c || []).join(' ')).includes(q)))
+    .sort((a, b) => a.n.localeCompare(b.n, 'pt-BR', { numeric: true }));
+}
+function catDesenhar(reset) {
+  if (!D) return;
+  if (reset) CAT_N = 120;
+  const ref = $('catFonte').value === 'ref';
+  $('catFiltrosBV').style.display = ref ? 'none' : ''; $('catFiltrosRef').style.display = ref ? '' : 'none';
+  const L = catLista();
+  $('catInfo').textContent = `${L.length} cor(es)` + (D.atualizado ? ` · dados do laboratório de ${dataBR(D.atualizado)}` : '') + (ref ? ' · cor de catálogo: referência de tela (RGB do fabricante)' : '');
+  $('catGrid').innerHTML = L.slice(0, CAT_N).map((x) => ref ? cartaoRef(x) : cartaoCor(x)).join('') || '<div class="soft">Nenhuma cor encontrada.</div>';
+  $('catMais').style.display = L.length > CAT_N ? '' : 'none';
+}
+const tomTxt = { branca: 'Branca', clara: 'Clara', escura: 'Escura' };
+function cartaoCor(c) {
+  const rgb = PC.corRgb(c);
+  return `<div class="cor" onclick="corDetalhe('${esc(c.k)}')"><div class="sw ${rgb ? '' : 'sw0'}" style="${rgb ? 'background:' + rgbCss(rgb) : ''}"></div>
+    <div class="tx"><b>${esc(c.n)}</b><div class="small soft">${(c.c || []).map(esc).join(' · ')}${c.t ? ' · tom ' + tomTxt[c.t] : ''}${c.m ? ' · medida no Coralis' : ''}</div>
+    <div class="small" style="margin-top:3px">${c.p.length ? '<span class="chip ok">✅ Desenvolvida</span> ' + c.p.map((p) => esc(p[1])).join(', ') : '<span class="soft">Sem cor desenvolvida</span>'}</div></div></div>`;
+}
+function cartaoRef(r) {
+  return `<div class="cor" onclick="refDetalhe(${r.i})"><div class="sw" style="background:${rgbCss(r.rgb)}"></div>
+    <div class="tx"><b>${esc(r.m + ' ' + r.c)}</b>${r.n ? ' ' + esc(r.n) : ''}<div class="small soft">${esc(r.o)}</div>
+    ${r.d && r.d.length ? `<div class="small" style="margin-top:3px"><span class="chip ok">✅ Temos</span> ${r.d.map(esc).join(', ')}</div>` : ''}</div></div>`;
+}
+function corDetalhe(k) {
+  const c = D.corPorK.get(k); if (!c) return;
+  const rgb = PC.corRgb(c);
+  $('detBox').innerHTML = `<div class="${rgb ? '' : 'sw0'}" style="height:120px;border-radius:10px;border:1px solid var(--line);${rgb ? 'background:' + rgbCss(rgb) : ''}"></div>
+    <h2 style="margin-top:10px">${esc(c.n)}</h2>
+    <div class="small soft">${(c.c || []).map(esc).join(' · ')}${c.t ? ' · tom ' + tomTxt[c.t] : ''}</div>
+    ${c.L != null ? `<div class="small" style="margin-top:6px">L* ${num(c.L, 1)} · a* ${num(c.a, 1)} · b* ${num(c.b, 1)} — ${c.m ? '<b>medida no Coralis</b> (D65/10°)' : 'valor de tela (catálogo)'}</div>` : '<div class="small soft" style="margin-top:6px">Sem valor de cor cadastrado.</div>'}
+    <h3>Desenvolvida em</h3><div>${c.p.length ? c.p.map((p) => `<span class="chip ok">${esc(p[1])}</span>`).join(' ') : '<span class="soft small">Ainda não foi desenvolvida em nenhum produto. Peça ao laboratório.</span>'}</div>
+    <div class="info">A cor na tela é aproximada. A aprovação é sempre na placa, na cabine de luz.</div>
+    <div class="bar">${c.L != null && PERM.has('portal_proxima') ? `<button class="btn btn-p" onclick="fechar('det');compararCom('${esc(c.k)}')">🔎 Ver as cores mais próximas</button>` : ''}<button class="btn" onclick="fechar('det')">Fechar</button></div>`;
+  abrir('det');
+}
+function refDetalhe(i) {
+  const r = D.refPorI.get(i); if (!r) return; const l = PC.rgbParaLab(r.rgb);
+  $('detBox').innerHTML = `<div style="height:120px;border-radius:10px;border:1px solid var(--line);background:${rgbCss(r.rgb)}"></div>
+    <h2 style="margin-top:10px">${esc(r.m + ' ' + r.c)} ${esc(r.n)}</h2><div class="small soft">${esc(r.o)} · RGB ${r.rgb.join(', ')} (tela)</div>
+    ${r.d && r.d.length ? `<h3>A Bela Vista já desenvolveu</h3><div>${r.d.map((n) => `<span class="chip ok">${esc(n)}</span>`).join(' ')}</div>` : ''}
+    <div class="bar" style="margin-top:12px">${PERM.has('portal_proxima') ? `<button class="btn btn-p" onclick="fechar('det');compararValor(${JSON.stringify({ nome: r.m + ' ' + r.c + (r.n ? ' ' + r.n : ''), lab: l, medido: false, fonte: 'catálogo ' + r.m + ' (RGB de tela)', rgbInf: r.rgb }).replace(/"/g, '&quot;')})">🔎 Ver as cores Bela Vista mais próximas</button>` : ''}<button class="btn" onclick="fechar('det')">Fechar</button></div>`;
+  abrir('det');
+}
+function compararCom(k) { const c = D.corPorK.get(k); compararValor({ nome: c.n, lab: { L: c.L, a: c.a, b: c.b }, medido: !!c.m, fonte: c.m ? 'cor Bela Vista (medida no Coralis)' : 'cor Bela Vista (tela)' }); }
+function compararValor(a) { irPara('prox'); modo('valores', true); ATUAL = { origem: 'valores', areas: [PC.calcularValor(Object.assign({}, a), D, 'valores')] }; resultadoDesenhar(); }
+
+/* ══ cor mais próxima ══ */
+let MODO = '', ATUAL = null, FOTO = null, BLE = null;
+function modo(m, semLimpar) {
+  MODO = m; ['foto', 'valores', 'coralis'].forEach((x) => { const b = $('m' + x[0].toUpperCase() + x.slice(1)); if (b) b.classList.toggle('sel', x === m); });
+  if (!semLimpar) { ATUAL = null; $('resultado').innerHTML = ''; }
+  if (m === 'foto') formFoto(); else if (m === 'valores') formValores(); else if (m === 'coralis') formCoralis(); else $('entrada').innerHTML = '';
+}
+const inpN = (id, ph, w) => `<input class="inp" type="text" inputmode="decimal" id="${id}" placeholder="${ph}" style="width:${w || 66}px">`;
+const nv = (id) => { const t = String($(id).value || '').trim().replace(',', '.'); return t === '' ? NaN : Number(t); };
+function formValores() {
+  $('entrada').innerHTML = `<div class="field"><label>Nome da cor (como o cliente chamou)</label><input class="inp" id="vNome" placeholder="Ex.: cor da fachada, código do arquiteto"></div>
+    <div class="bar" style="align-items:flex-end">
+      <div><div class="small"><b>RGB (0–255)</b></div><div class="bar" style="margin:0">${inpN('vR', 'R')}${inpN('vG', 'G')}${inpN('vB', 'B')}</div></div>
+      <div><div class="small"><b>ou HEX</b></div>${inpN('vHex', '#C8C2B4', 110)}</div>
+      <div><div class="small"><b>ou L*a*b*</b></div><div class="bar" style="margin:0">${inpN('vL', 'L*')}${inpN('vA', 'a*')}${inpN('vBb', 'b*')}</div></div>
+      <span id="vSw" class="msw" style="width:64px;height:42px;background:#eee"></span></div>
+    <label class="small"><input type="checkbox" id="vMedido" checked> L*a*b* <b>medido</b> em espectrofotômetro (D65/10°) — desmarque se veio de tela/catálogo</label>
+    <details class="small" style="margin-top:6px"><summary>Curva espectral (opcional)</summary>
+      <textarea class="inp" id="vEsp" rows="2" style="width:100%;margin-top:4px" placeholder="refletância de 400 a 700 nm, de 10 em 10 (31 valores), separados por espaço ou ;"></textarea></details>
+    <div class="small soft" id="vInfo" style="margin:6px 0">Preencha um dos grupos.</div>
+    <button class="btn btn-p" onclick="valoresComparar()">Comparar</button>`;
+  let fonte = '';
+  const prev = () => { const v = valoresLer(fonte); $('vSw').style.background = v ? rgbCss(PC.labParaRgb(v.lab.L, v.lab.a, v.lab.b)) : '#eee';
+    $('vInfo').innerHTML = v ? `Vale: <b>${esc(v.fonte)}</b> → L ${num(v.lab.L, 1)} · a ${num(v.lab.a, 1)} · b ${num(v.lab.b, 1)} · <b>${v.medido ? 'medido' : 'tela'}</b>` : (fonte ? '<span class="bad">Valor incompleto ou fora da faixa.</span>' : 'Preencha um dos grupos.'); };
+  [['vR', 'rgb'], ['vG', 'rgb'], ['vB', 'rgb'], ['vHex', 'hex'], ['vL', 'lab'], ['vA', 'lab'], ['vBb', 'lab']].forEach(([id, f]) => $(id).addEventListener('input', () => { fonte = f; formValores.fonte = f; prev(); }));
+  $('vMedido').addEventListener('change', prev); formValores.fonte = '';
+}
+function valoresLer(fonte) {
+  if (fonte === 'rgb') { const r = ['vR', 'vG', 'vB'].map(nv); if (r.some((x) => !isFinite(x) || x < 0 || x > 255)) return null; return { lab: PC.rgbParaLab(r), medido: false, fonte: 'RGB digitado', rgbInf: r.map(Math.round) }; }
+  if (fonte === 'hex') { const m = String($('vHex').value || '').trim().match(/^#?([0-9a-f]{6})$/i); if (!m) return null; const r = [0, 2, 4].map((i) => parseInt(m[1].substr(i, 2), 16)); return { lab: PC.rgbParaLab(r), medido: false, fonte: 'HEX #' + m[1].toUpperCase(), rgbInf: r }; }
+  if (fonte === 'lab') { const l = ['vL', 'vA', 'vBb'].map(nv); if (l.some((x) => !isFinite(x)) || l[0] < 0 || l[0] > 100 || Math.abs(l[1]) > 128 || Math.abs(l[2]) > 128) return null; return { lab: { L: l[0], a: l[1], b: l[2] }, medido: $('vMedido').checked, fonte: 'L*a*b* digitado', digitado: true }; }
+  return null;
+}
+function valoresComparar() {
+  const v = valoresLer(formValores.fonte); if (!v) { toast('Preencha RGB, HEX ou L*a*b* completo'); return; }
+  const esp = PC.lerEspectro($('vEsp').value); if ($('vEsp').value.trim() && !esp) { toast('Curva espectral: informe os 31 valores de 400 a 700 nm'); return; }
+  ATUAL = { origem: 'valores', areas: [PC.calcularValor({ nome: $('vNome').value.trim() || 'Cor informada', lab: v.lab, medido: v.medido, fonte: v.fonte, rgbInf: v.rgbInf || null, espectro: esp, digitado: !!v.digitado }, D, 'valores')] };
+  resultadoDesenhar();
+}
+function formCoralis() {
+  const temBle = typeof cbleDisponivel === 'function' && cbleDisponivel();
+  $('entrada').innerHTML = `<div class="field"><label>Nome da leitura (ex.: placa do cliente, fachada Rua X)</label><input class="inp" id="cNome" placeholder="Leitura do Coralis"></div>
+    ${temBle ? `<div class="card" style="background:#fafafa"><b>📡 Ler agora pelo Bluetooth</b> <span class="small soft">— Coralis HPS Pro ligado e calibrado (branco e preto)</span>
+      <div class="bar" style="margin-top:8px"><button class="btn" id="cCon" onclick="bleConectar()">Conectar ao aparelho</button>
+      <select class="inp" id="cVezes"><option value="1">1 leitura</option><option value="3" selected>média de 3 leituras</option><option value="5">média de 5 leituras</option></select>
+      <button class="btn btn-p" id="cMedir" onclick="bleMedir()" disabled>Medir</button></div><div class="small soft" id="cSt"></div></div>`
+      : `<div class="aviso">Este navegador não tem Bluetooth (iPhone, Safari ou Firefox). Para ler direto, use o Chrome ou o Edge no computador ou no Android. Ou digite abaixo os valores que o app do Coralis mostrar.</div>`}
+    <div class="card"><b>Ou digite a leitura</b> <span class="small soft">(D65/10°, como o Coralis mostra)</span>
+      <div class="bar" style="margin-top:6px">${inpN('cL', 'L*')}${inpN('cA', 'a*')}${inpN('cB', 'b*')}</div>
+      <details class="small"><summary>Curva espectral (opcional)</summary><textarea class="inp" id="cEsp" rows="2" style="width:100%;margin-top:4px" placeholder="refletância de 400 a 700 nm, de 10 em 10 (31 valores)"></textarea></details>
+      <button class="btn btn-p" style="margin-top:8px" onclick="coralisDigitado()">Comparar</button></div>`;
+  if (BLE && BLE.conectado()) { $('cMedir').disabled = false; $('cSt').textContent = 'Conectado.'; }
+}
+async function bleConectar() {
+  try { $('cSt').textContent = 'Escolha o aparelho na janela do navegador…'; BLE = BLE || new CoralisBLE(); const nome = await BLE.conectar(); $('cSt').textContent = 'Conectado: ' + (nome || 'Coralis'); $('cMedir').disabled = false; }
+  catch (e) { $('cSt').textContent = 'Não conectou: ' + e.message; }
+}
+async function bleMedir() {
+  const n = Number($('cVezes').value) || 1; $('cMedir').disabled = true;
+  try {
+    const r = await BLE.medir(n, (i, t) => { $('cSt').textContent = `Medindo ${i} de ${t}… mantenha o aparelho apoiado na placa`; });
+    const m = r.media; if (!m) throw new Error('leitura vazia');
+    $('cSt').textContent = `Leitura: L ${num(m.L, 2)} · a ${num(m.a, 2)} · b ${num(m.b, 2)}` + (m.n > 1 ? ` (média de ${m.n}; variação L ${num(m.amplitude.L, 2)})` : '');
+    ATUAL = { origem: 'coralis', areas: [PC.calcularValor({ nome: $('cNome').value.trim() || 'Leitura do Coralis', lab: { L: m.L, a: m.a, b: m.b }, medido: true, fonte: 'Coralis D65/10° · Bluetooth' + (m.n > 1 ? ' · média de ' + m.n : ''), espectro: m.espectro || null }, D, 'coralis')] };
+    resultadoDesenhar();
+  } catch (e) { $('cSt').textContent = 'Erro: ' + e.message; }
+  finally { $('cMedir').disabled = !(BLE && BLE.conectado()); }
+}
+function coralisDigitado() {
+  const l = ['cL', 'cA', 'cB'].map(nv); if (l.some((x) => !isFinite(x)) || l[0] < 0 || l[0] > 100) { toast('Preencha L*, a* e b*'); return; }
+  const esp = PC.lerEspectro($('cEsp').value); if ($('cEsp').value.trim() && !esp) { toast('Curva espectral: informe os 31 valores de 400 a 700 nm'); return; }
+  ATUAL = { origem: 'coralis', areas: [PC.calcularValor({ nome: $('cNome').value.trim() || 'Leitura do Coralis', lab: { L: l[0], a: l[1], b: l[2] }, medido: true, fonte: 'Coralis D65/10° · digitado', espectro: esp, digitado: true }, D, 'coralis')] };
+  resultadoDesenhar();
+}
+
+/* ── foto (mesmo método do módulo: mediana sem os 10 % mais claros/escuros, correção pelo branco) ── */
+const _lin = (u) => { u = u / 255; return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); };
+const _gam = (c) => Math.max(0, Math.min(255, Math.round((c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(Math.max(c, 0), 1 / 2.4) - 0.055) * 255)));
+function fotoCorrigir(rgb, branco) {
+  if (!branco) return rgb.slice();
+  const w = branco.map(_lin), g = (w[0] + w[1] + w[2]) / 3;
+  if (!(w[0] > 0 && w[1] > 0 && w[2] > 0)) return rgb.slice();
+  return rgb.map((v, i) => _gam(_lin(v) * g / w[i]));
+}
+function fotoMedir(ctx, ret) {
+  const [x, y, w, h] = ret.map(Math.round); if (w < 3 || h < 3) return null;
+  const d = ctx.getImageData(x, y, w, h).data, n = w * h, passo = Math.max(1, Math.floor(Math.sqrt(n / 40000)));
+  const px = [];
+  for (let j = 0; j < h; j += passo) for (let i = 0; i < w; i += passo) { const k = (j * w + i) * 4; px.push([d[k], d[k + 1], d[k + 2], 0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2]]); }
+  px.sort((a, b) => a[3] - b[3]);
+  const corte = Math.floor(px.length * 0.10), meio = px.slice(corte, px.length - corte);
+  if (!meio.length) return null;
+  const med = (c) => { const v = meio.map((p) => p[c]).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; };
+  const rgb = [med(0), med(1), med(2)];
+  const Ls = meio.filter((_, i) => i % 3 === 0).map((p) => PC.rgbParaLab(p).L), mL = Ls.reduce((s, v) => s + v, 0) / Ls.length;
+  const dispL = Math.sqrt(Ls.reduce((s, v) => s + (v - mL) * (v - mL), 0) / Ls.length);
+  return { rgbBruto: rgb, dispL };
+}
+function formFoto() {
+  FOTO = null;
+  $('entrada').innerHTML = `<div class="info"><b>Foto = ponto de partida, não aprova cor.</b> Prefira foto com luz difusa (dia nublado ou sombra uniforme), sem filtro, e marque um <b>branco de referência</b> (parede branca, papel branco) para corrigir a luz.</div>
+    <div class="bar"><label class="btn btn-p" style="cursor:pointer">📷 Escolher ou tirar foto<input type="file" id="fArq" accept="image/*" style="display:none"></label>
+      <span id="fModos" style="display:none" class="bar"><span class="small soft">Marcar:</span>
+      <button class="btn sel" id="fMArea" onclick="fotoModo('area')">▭ Área de cor</button>
+      <button class="btn" id="fMBranco" onclick="fotoModo('branco')">⬜ Branco de referência</button></span></div>
+    <div class="small soft" id="fDica"></div>
+    <div id="fotoWrap"></div><div id="fAreas"></div>`;
+  $('fArq').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) fotoCarregar(f); });
+}
+function fotoCarregar(arq) {
+  if (!/^image\//.test(arq.type)) { toast('Escolha uma imagem'); return; }
+  const url = URL.createObjectURL(arq), img = new Image();
+  img.onload = () => {
+    const k = Math.min(1, FOTO_MAX / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+    cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.id = 'fotoCv';
+    const ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    const base = document.createElement('canvas'); base.width = cv.width; base.height = cv.height; base.getContext('2d').drawImage(cv, 0, 0);
+    URL.revokeObjectURL(url);
+    FOTO = { cv, ctx, base, areas: [], branco: null, modo: 'area' };
+    $('fotoWrap').innerHTML = ''; $('fotoWrap').appendChild(cv); $('fModos').style.display = 'flex';
+    $('fDica').textContent = 'Arraste o dedo ou o mouse sobre a foto para marcar cada área de cor (até 6). Depois toque em Analisar.';
+    fotoEventos(); fotoAreas();
+  };
+  img.onerror = () => toast('Não consegui abrir esta imagem');
+  img.src = url;
+}
+function fotoModo(m) { if (!FOTO) return; FOTO.modo = m; $('fMArea').classList.toggle('sel', m === 'area'); $('fMBranco').classList.toggle('sel', m === 'branco'); }
+function fotoRedesenhar(extra) {
+  const { cv, ctx, base } = FOTO; ctx.drawImage(base, 0, 0);
+  const lw = Math.max(2, cv.width / 400), fs = Math.max(14, cv.width / 45);
+  const ret = (r, cor, txt) => { ctx.lineWidth = lw; ctx.strokeStyle = '#000'; ctx.strokeRect(r[0] - lw, r[1] - lw, r[2] + 2 * lw, r[3] + 2 * lw); ctx.strokeStyle = cor; ctx.strokeRect(r[0], r[1], r[2], r[3]);
+    if (txt) { ctx.font = `bold ${fs}px sans-serif`; ctx.fillStyle = '#000'; ctx.fillText(txt, r[0] + 3, r[1] + fs + 1); ctx.fillStyle = cor; ctx.fillText(txt, r[0] + 2, r[1] + fs); } };
+  if (FOTO.branco) ret(FOTO.branco.ret, '#fff', 'BRANCO');
+  FOTO.areas.forEach((a, i) => ret(a.ret, '#ffde00', String(i + 1)));
+  if (extra) ret(extra, '#00e0ff');
+}
+function fotoEventos() {
+  const cv = FOTO.cv; let ini = null;
+  const pt = (e) => { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) * cv.width / b.width, (e.clientY - b.top) * cv.height / b.height]; };
+  const ret = (a, b) => { const x = Math.max(0, Math.min(a[0], b[0])), y = Math.max(0, Math.min(a[1], b[1])); return [x, y, Math.min(cv.width - x, Math.abs(a[0] - b[0])), Math.min(cv.height - y, Math.abs(a[1] - b[1]))]; };
+  cv.addEventListener('pointerdown', (e) => { e.preventDefault(); ini = pt(e); try { cv.setPointerCapture(e.pointerId); } catch (x) {} });
+  cv.addEventListener('pointermove', (e) => { if (ini) fotoRedesenhar(ret(ini, pt(e))); });
+  cv.addEventListener('pointerup', (e) => {
+    if (!ini) return; const r = ret(ini, pt(e)); ini = null;
+    if (r[2] < 6 || r[3] < 6) { fotoRedesenhar(); toast('Arraste um retângulo maior'); return; }
+    const md = fotoMedir(FOTO.base.getContext('2d'), r); if (!md) { fotoRedesenhar(); return; }
+    if (FOTO.modo === 'branco') {
+      const lab = PC.rgbParaLab(md.rgbBruto);
+      if (lab.L < 55) toast('Isto está escuro para ser branco (L ' + num(lab.L, 0) + ') — confira');
+      else if (Math.hypot(lab.a, lab.b) > 12) toast('Isto puxa para uma cor (não parece branco) — confira');
+      FOTO.branco = { ret: r.map(Math.round), rgb: md.rgbBruto }; fotoModo('area');
+    } else {
+      if (FOTO.areas.length >= 6) { toast('Até 6 áreas por foto'); fotoRedesenhar(); return; }
+      FOTO.areas.push({ nome: 'Área ' + (FOTO.areas.length + 1), ret: r.map(Math.round), luz: 'difusa', rgbBruto: md.rgbBruto, dispL: md.dispL });
+    }
+    fotoRedesenhar(); fotoAreas();
+  });
+}
+function fotoAreas() {
+  const luz = (a, i) => `<select class="inp" data-luz="${i}">${PC.LUZ.map(([k, t]) => `<option value="${k}" ${a.luz === k ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+  $('fAreas').innerHTML = (FOTO.branco ? `<div class="small" style="margin-top:8px">⬜ Branco de referência marcado <button class="btn" style="padding:2px 8px" onclick="FOTO.branco=null;fotoRedesenhar();fotoAreas()">tirar</button></div>` : '<div class="small soft" style="margin-top:8px">Sem branco de referência (opcional, mas melhora a cor).</div>')
+    + FOTO.areas.map((a, i) => `<div class="bar" style="margin:6px 0"><b>${i + 1}</b><input class="inp" data-nome="${i}" value="${esc(a.nome)}" style="flex:1 1 140px"> ${luz(a, i)}
+      <button class="btn" style="padding:4px 9px" onclick="FOTO.areas.splice(${i},1);fotoRedesenhar();fotoAreas()">✕</button></div>`).join('')
+    + (FOTO.areas.length ? '<button class="btn btn-p" style="margin-top:6px" onclick="fotoAnalisar()">Analisar</button>' : '');
+  document.querySelectorAll('[data-nome]').forEach((el) => el.addEventListener('input', () => { FOTO.areas[el.dataset.nome].nome = el.value.slice(0, 80); }));
+  document.querySelectorAll('[data-luz]').forEach((el) => el.addEventListener('change', () => { FOTO.areas[el.dataset.luz].luz = el.value; }));
+}
+function fotoAnalisar() {
+  if (!FOTO || !FOTO.areas.length) return;
+  const temB = !!FOTO.branco;
+  const areas = FOTO.areas.map((a) => PC.calcularFoto(Object.assign({}, a, { nome: a.nome || 'Área', rgb: fotoCorrigir(a.rgbBruto, temB ? FOTO.branco.rgb : null), dispL: Math.round(a.dispL * 10) / 10 }), D, temB));
+  ATUAL = { origem: 'foto', areas, branco: FOTO.branco ? { ret: FOTO.branco.ret, rgb: FOTO.branco.rgb } : null, largura: FOTO.cv.width, altura: FOTO.cv.height };
+  resultadoDesenhar();
+}
+
+/* ── resultado ── */
+function swDe(o, tipo) {
+  if (tipo === 'ref') { const r = D.refPorI.get(o.ref); return r ? rgbCss(r.rgb) : '#ddd'; }
+  if (tipo === 'pad') return rgbCss(PC.labParaRgb(o.lab.L, o.lab.a, o.lab.b));
+  const c = D.corPorK.get(o.k); const rgb = c && PC.corRgb(c); return rgb ? rgbCss(rgb) : '#ddd';
+}
+function linhaSug(o, tipo, alvoMedido) {
+  const [fx, fc] = PC.faixa(o.de), til = (tipo === 'ref' || !alvoMedido || !o.medido) ? '~' : '';
+  const sub = tipo === 'dos' ? (o.produtos.length ? '✅ desenvolvida em ' + o.produtos.map(esc).join(', ') : '') + (o.medido ? ' · medida' : '')
+    : tipo === 'ref' ? esc(o.colecao || '') + (o.dosagemEm && o.dosagemEm.length ? ' · <b>temos:</b> ' + o.dosagemEm.map(esc).join(', ') : '')
+    : tipo === 'pad' ? 'padrão medido' + (o.cor ? ' · ' + esc(o.cor) : '') + (o.produto ? ' · ' + esc(o.produto) : '') : 'catálogo Bela Vista';
+  return `<div class="item"><span class="msw" style="background:${swDe(o, tipo)}"></span><div style="flex:1;min-width:0"><b style="overflow-wrap:anywhere">${esc(tipo === 'pad' ? (o.cor || 'Padrão medido') : o.nome)}</b><div class="small soft">${sub}</div></div>
+    <span class="de ${fc}" title="${fx}">ΔE ${til}${num(o.de, 1)}</span></div>`;
+}
+function areaHtml(a, origem) {
+  const s = a.sug || { comDos: [], semDos: [], marcas: [] }, pr = a.prod || { prontos: [] }, med = !!a.medido && origem !== 'foto';
+  const rgb = a.rgb || PC.labParaRgb(a.lab.L, a.lab.a, a.lab.b);
+  const m1 = s.comDos[0];
+  const resumo = !m1 ? 'Nenhuma cor desenvolvida para comparar.' : m1.de < 3 ? `Ponto de partida: <b>${esc(m1.nome)}</b> (ΔE ${num(m1.de, 1)}) — já desenvolvida em ${m1.produtos.map(esc).join(', ')}.`
+    : m1.de < 6 ? `Nenhuma cor desenvolvida bem próxima; a mais perto é <b>${esc(m1.nome)}</b> (ΔE ${num(m1.de, 1)}) — provável desenvolvimento novo a partir dela.` : 'Nada desenvolvido parecido — provável desenvolvimento novo.';
+  return `<div class="card"><div class="bar" style="align-items:center"><span class="msw" style="width:64px;height:46px;background:${rgbCss(rgb)}"></span>
+      <div style="flex:1"><b>${esc(a.nome)}</b><div class="small soft">L ${num(a.lab.L, 1)} · a ${num(a.lab.a, 1)} · b ${num(a.lab.b, 1)} · ${origem === 'foto' ? 'foto · luz: ' + esc((PC.LUZ.find((x) => x[0] === a.luz) || [, '—'])[1]) : esc(a.fonte || '') + ' · ' + (a.medido ? 'medido' : 'tela')}</div></div></div>
+    <div class="info">${resumo}</div>
+    ${s.padroes && s.padroes.length ? '<h3>Padrões medidos no Coralis (leitura × leitura)</h3>' + s.padroes.slice(0, 3).map((o) => linhaSug(o, 'pad', true)).join('') : ''}
+    <h3>Cores Bela Vista já desenvolvidas</h3>${s.comDos.map((o) => linhaSug(o, 'dos', med)).join('') || '<div class="small soft">—</div>'}
+    ${s.semDos.length ? '<h3>Catálogo Bela Vista (ainda sem desenvolvimento)</h3>' + s.semDos.map((o) => linhaSug(o, o.ref != null && !o.k ? 'ref' : 'cat', med)).join('') : ''}
+    ${s.marcas.length ? '<h3>Outras marcas (referência de tela)</h3>' + s.marcas.map((o) => linhaSug(o, 'ref', med)).join('') : ''}
+    <h3>Produto</h3><div class="small">${pr.prontos.length ? 'Já sai em: ' + pr.prontos.map((x) => `<span class="chip ok">${esc(x.produto)}</span> <span class="soft">(${esc(x.cor)})</span>`).join(' ') : '<span class="soft">Nenhuma cor desenvolvida bem próxima (ΔE &lt; 3).</span>'}</div>
+    <div class="small" style="margin-top:3px">${pr.tom ? `Tom provável: <b>${esc(tomTxt[pr.tom] || pr.tom)}</b> <span class="soft">(${esc(pr.origemTom)})</span>${pr.comAviso && pr.comAviso.length ? '<br><span class="soft">Sem base própria para este tom: ' + pr.comAviso.map((x) => esc(x.produto)).join(', ') + '</span>' : ''}` : '<span class="soft">Tom: a definir no desenvolvimento.</span>'}</div>
+    ${(a.avisos || []).map((t) => `<div class="aviso">⚠ ${esc(t)}</div>`).join('')}</div>`;
+}
+function resultadoDesenhar() {
+  const c = ATUAL; if (!c || !c.areas.length) { $('resultado').innerHTML = ''; return; }
+  const co = PC.coerencia(c.areas);
+  $('resultado').innerHTML = `<div class="aviso"><b>${esc(PC.AVISO_TXT[c.origem])}</b><br>ΔE com "~" = comparação com valor de tela (aproximada). Faixas: &lt;1 praticamente igual · &lt;2 muito próxima · &lt;3,5 próxima · &lt;6 parecida.</div>`
+    + c.areas.map((a) => areaHtml(a, c.origem)).join('') + co.map((t) => `<div class="aviso">⚠ ${esc(t)}</div>`).join('')
+    + `<div class="card" id="envio"><h2>Enviar ao laboratório</h2><div class="small soft" style="margin-bottom:8px">O laboratório recebe esta consulta com o número CF-xxxx e responde por aqui (aba Consultas).</div>
+      <div class="field"><label>Representante *</label><input class="inp" id="eRep" value="${esc((ACESSO && ACESSO.nome) || '')}"></div>
+      <div class="field"><label>Cliente <span class="soft">(opcional)</span></label><input class="inp" id="eCli"></div>
+      <div class="field"><label>Produto pretendido</label><select class="inp" id="eProd"><option value="">—</option>${D.familias.map((f) => `<option value="${esc(f.k)}">${esc(f.n)}</option>`).join('')}</select></div>
+      <div class="field"><label>Observação (obra/endereço, prazo…)</label><input class="inp" id="eObs" maxlength="500"></div>
+      <button class="btn btn-p" id="eBtn" onclick="enviar()">Enviar ao laboratório</button></div>`;
+  $('resultado').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function miniCor(rgb) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d'); x.fillStyle = rgbCss(rgb); x.fillRect(0, 0, 64, 64); return cv.toDataURL('image/jpeg', 0.8); }
+function miniFoto() { const cv = FOTO.base, k = Math.min(1, 200 / Math.max(cv.width, cv.height)), m = document.createElement('canvas'); m.width = Math.round(cv.width * k); m.height = Math.round(cv.height * k); m.getContext('2d').drawImage(cv, 0, 0, m.width, m.height); return m.toDataURL('image/jpeg', 0.7); }
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+async function enviar() {
+  const c = ATUAL; if (!c) return;
+  const rep = $('eRep').value.trim(); if (!rep) { toast('Informe o representante'); return; }
+  const fam = D.familias.find((f) => f.k === $('eProd').value);
+  $('eBtn').disabled = true; $('eBtn').textContent = 'Enviando…';
+  try {
+    let foto_path = null;
+    if (c.origem === 'foto') {
+      const blob = await new Promise((ok) => FOTO.base.toBlob(ok, 'image/jpeg', 0.88));
+      foto_path = `${await meuId()}/${uid()}.jpg`;
+      await api(`/storage/v1/object/${BUCKET}/${foto_path}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' }, body: blob });
+    }
+    const areas = c.areas.map((a) => { const o = Object.assign({}, a); return o; });
+    const linha = { origem: c.origem, representante: rep.slice(0, 120), cliente: $('eCli').value.trim().slice(0, 200), produto_k: fam ? fam.k : '', produto: fam ? fam.n : '',
+      obs: $('eObs').value.trim().slice(0, 500), areas, mini: c.origem === 'foto' ? miniFoto() : miniCor(c.areas[0].rgb), foto_path,
+      largura: c.largura || 0, altura: c.altura || 0, branco: c.branco || null };
+    await api('/rest/v1/portal_consultas', { method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(linha) });
+    toast('Enviada ao laboratório ✓ O número CF sai na próxima sincronização (de hora em hora, 7h–18h).', 6000);
+    $('envio').innerHTML = '<b class="ok">✓ Consulta enviada.</b> <span class="small soft">Acompanhe na aba Consultas.</span>';
+  } catch (e) { toast('Não foi possível enviar: ' + e.message, 6000); $('eBtn').disabled = false; $('eBtn').textContent = 'Enviar ao laboratório'; }
+}
+async function meuId() { if (ACESSO && ACESSO.user_id) return ACESSO.user_id; const tk = await tokenValido(); return JSON.parse(atob(tk.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub; }
+
+/* ══ consultas ══ */
+let CONS = [];
+$('consSoMinhas').addEventListener('change', consDesenhar);
+async function consCarregar() {
+  $('consLista').innerHTML = '<div class="soft">Carregando…</div>';
+  try { CONS = await (await api('/rest/v1/portal_consultas?select=id,criado_em,user_id,email,origem,representante,cliente,produto,obs,areas,mini,numero,status,foto_path,foto_removida_em,recebida_em&order=id.desc&limit=300')).json(); consDesenhar(); }
+  catch (e) { $('consLista').innerHTML = `<div class="bad">Não foi possível carregar: ${esc(e.message)}</div>`; }
+}
+function consDesenhar() {
+  const meu = ACESSO && ACESSO.user_id, so = $('consSoMinhas').checked, todas = PERM.has('portal_consultas_todas');
+  const L = CONS.filter((c) => !so || c.user_id === meu);
+  $('consLista').innerHTML = L.length ? `<div class="card">${L.map((c) => `<div class="item" style="cursor:pointer" onclick="consDetalhe(${c.id})">
+      ${c.mini ? `<img src="${esc(c.mini)}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--line)">` : '<span class="msw" style="width:52px;height:52px"></span>'}
+      <div style="flex:1;min-width:0"><b>${c.numero ? esc(c.numero) : '<span class="soft">sem número ainda</span>'}</b> <span class="small soft">· ${ORIG[c.origem] || ''} · ${dataBR(c.criado_em)}</span>
+      <div class="small">${esc(c.cliente || 'cliente a informar')}${c.produto ? ' · ' + esc(c.produto) : ''} · ${esc((c.areas || []).map((a) => a.nome).join(', '))}</div>
+      <div class="small soft">${esc(ST[c.status] || c.status)}${todas ? ' · ' + esc(c.email) : ''}</div></div></div>`).join('')}</div>` : '<div class="card soft">Nenhuma consulta enviada ainda.</div>';
+}
+async function consDetalhe(id) {
+  const c = CONS.find((x) => x.id === id); if (!c) return;
+  $('detBox').innerHTML = `<div class="bar"><h2 style="flex:1;margin:0">${c.numero ? esc(c.numero) : 'Consulta #' + c.id} · ${ORIG[c.origem] || ''}</h2><button class="btn" onclick="fechar('det')">Fechar</button></div>
+    <div class="small soft">${dataBR(c.criado_em)} · ${esc(c.email)} · representante ${esc(c.representante)}${c.cliente ? ' · cliente ' + esc(c.cliente) : ''}${c.produto ? ' · ' + esc(c.produto) : ''}</div>
+    <div class="info"><b>${esc(ST[c.status] || c.status)}</b>${c.recebida_em ? ' · recebida em ' + dataBR(c.recebida_em) : ''}${c.obs ? '<br>' + esc(c.obs) : ''}</div>
+    <div id="detFoto"></div>${(c.areas || []).filter((a) => a && a.lab).map((a) => areaHtml(a, c.origem)).join('')}`;
+  abrir('det');
+  if (c.foto_path) {
+    try { const r = await api(`/storage/v1/object/authenticated/${BUCKET}/${c.foto_path}`); const u = URL.createObjectURL(await r.blob());
+      $('detFoto').innerHTML = `<img src="${u}" alt="foto da consulta" style="max-width:100%;border-radius:8px;border:1px solid var(--line);margin:6px 0">`; }
+    catch (e) { $('detFoto').innerHTML = '<div class="small soft">Foto indisponível.</div>'; }
+  } else if (c.foto_removida_em) $('detFoto').innerHTML = '<div class="small soft">A foto saiu do portal depois de 12 meses (o laboratório guarda uma cópia).</div>';
+}
+
+iniciar();
+</script>
+</body>
+</html>
