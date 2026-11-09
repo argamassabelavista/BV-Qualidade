@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="robots" content="noindex">
-<title>Bela Vista — Portal de cores</title>
+<title>Bela Vista — Portal</title>
 <!-- Portal de cores — fase 1 (09/11/2026). Mesmo login do Dashboard BV QC Master (Supabase Auth, sessão compartilhada).
      Catálogo de cores (sem dosagem) + cor mais próxima por foto, valores ou Coralis. Funciona com o Lab01 desligado:
      os dados vêm do Supabase (portal_dados), publicados de hora em hora pelo portal_sync.js. Fundo claro e neutro de
@@ -61,7 +61,7 @@ h3{font-size:14px;margin:12px 0 4px}h2{font-size:16px;margin-bottom:6px}
 </head>
 <body>
 <div class="hdr">
-  <div><b>BELA VISTA · Portal de cores</b><small>Catálogo e cor mais próxima — referência de tela; a cor se aprova na placa</small></div>
+  <div><b>BELA VISTA · Portal</b><small>Cores e Assistência Técnica</small></div>
   <div class="hdr-r" id="hdrR" style="display:none"><span id="hdrEmail" style="color:#bbb"></span>
     <a id="lnkDash" href="./" style="display:none">Dashboard</a>
     <button onclick="trocaAbrir(false)">Trocar senha</button><button onclick="sair()">Sair</button></div>
@@ -69,11 +69,12 @@ h3{font-size:14px;margin:12px 0 4px}h2{font-size:16px;margin-bottom:6px}
 <div class="nav" id="nav" style="display:none">
   <button class="nb" data-pg="cat" onclick="irPara('cat')">🎨 Catálogo de cores</button>
   <button class="nb" data-pg="prox" onclick="irPara('prox')">🔎 Cor mais próxima</button>
-  <button class="nb" data-pg="cons" onclick="irPara('cons')">📋 Consultas</button>
+  <button class="nb" data-pg="cons" onclick="irPara('cons')">📋 Consultas de cor</button>
+  <button class="nb" data-pg="at" onclick="irPara('at')">🛠 Assistência Técnica</button>
 </div>
 <div id="semAcesso" style="display:none;max-width:520px;margin:50px auto;text-align:center" class="card">
-  <div style="font-size:32px">🔒</div><b>Seu usuário ainda não tem acesso ao Portal de cores.</b>
-  <p class="small soft" style="margin-top:6px">Peça ao administrador para marcar Catálogo ou Cor mais próxima na aba Usuários do Dashboard.</p>
+  <div style="font-size:32px">🔒</div><b>Seu usuário ainda não tem acesso ao Portal.</b>
+  <p class="small soft" style="margin-top:6px">Peça ao administrador para marcar as permissões do Portal na aba Usuários do Dashboard.</p>
   <p id="semAcessoDash" style="display:none;margin-top:10px"><a class="btn" href="./">Abrir o Dashboard</a></p></div>
 <div id="carregando" style="display:none;text-align:center;margin:40px" class="soft">Carregando as cores…</div>
 
@@ -122,6 +123,16 @@ h3{font-size:14px;margin:12px 0 4px}h2{font-size:16px;margin-bottom:6px}
     <button class="btn" onclick="consCarregar()">Atualizar</button></div>
     <div class="small soft">O número CF-xxxx aparece quando o laboratório recebe a consulta (sincronização de hora em hora, das 7h às 18h).</div></div>
   <div id="consLista"></div>
+</div>
+
+<!-- ASSISTÊNCIA TÉCNICA (09/11/2026) -->
+<div class="page" id="pg-at">
+  <div class="card"><div class="bar"><h2 style="margin:0;flex:1">Assistência Técnica</h2>
+    <label class="small" id="atSoMeusL" style="display:none"><input type="checkbox" id="atSoMeus"> só os meus</label>
+    <button class="btn" onclick="atCarregar()">Atualizar</button><button class="btn btn-p" onclick="atNovo()">＋ Novo chamado</button></div>
+    <div class="small soft">O laboratório recebe o chamado na sincronização (de hora em hora, das 7h às 18h), dá o número AT-xxxx e devolve aqui o andamento, o parecer e o relatório.</div></div>
+  <div id="atForm"></div>
+  <div id="atLista"></div>
 </div>
 
 <!-- login -->
@@ -754,13 +765,14 @@ async function iniciar() {
   const temDash = DASH_PERMS.some((p) => PERM.has(p));
   $('lnkDash').style.display = temDash ? '' : 'none';
   if (ACESSO && ACESSO.troca_senha) trocaAbrir(true);
-  const pags = { cat: PERM.has('portal_catalogo'), prox: PERM.has('portal_proxima'), cons: PERM.has('portal_proxima') || PERM.has('portal_consultas_todas') };
+  const pags = { cat: PERM.has('portal_catalogo'), prox: PERM.has('portal_proxima'), cons: PERM.has('portal_proxima') || PERM.has('portal_consultas_todas'), at: PERM.has('portal_at') || PERM.has('portal_at_todos') };
   document.querySelectorAll('.nb').forEach((b) => { b.style.display = pags[b.dataset.pg] ? '' : 'none'; });
-  const primeira = ['cat', 'prox', 'cons'].find((p) => pags[p]);
+  const primeira = ['cat', 'prox', 'cons', 'at'].find((p) => pags[p]);
   if (!primeira) { $('semAcesso').style.display = 'block'; $('semAcessoDash').style.display = temDash ? '' : 'none'; return; }
   $('nav').style.display = 'flex';
-  if (pags.cat || pags.prox) { $('carregando').style.display = 'block'; try { await carregarDados(); } catch (e) { $('carregando').textContent = 'Não foi possível carregar as cores: ' + e.message; return; } $('carregando').style.display = 'none'; }
+  if (pags.cat || pags.prox || pags.at) { $('carregando').style.display = 'block'; try { await carregarDados(); } catch (e) { $('carregando').textContent = 'Não foi possível carregar as cores: ' + e.message; return; } $('carregando').style.display = 'none'; }
   if (PERM.has('portal_consultas_todas')) $('consSoMinhasL').style.display = '';
+  if (PERM.has('portal_at_todos')) $('atSoMeusL').style.display = '';
   irPara(primeira);
 }
 function irPara(p) {
@@ -770,12 +782,14 @@ function irPara(p) {
   if (p === 'cat') catDesenhar(true);
   if (p === 'prox' && !$('entrada').innerHTML) modo(PERM.has('portal_proxima') ? 'foto' : '');
   if (p === 'cons') consCarregar();
+  if (p === 'at') atCarregar();
 }
 
 /* ══ dados do portal (cache local pela data de publicação) ══ */
 async function carregarDados() {
   const vers = await (await api('/rest/v1/portal_dados?select=chave,atualizado_em')).json();
-  const quero = ['cores', 'ref', 'meta'].concat(PERM.has('portal_proxima') ? ['padroes'] : []);
+  const cor = PERM.has('portal_catalogo') || PERM.has('portal_proxima');
+  const quero = (cor ? ['cores', 'ref', 'meta'] : []).concat(PERM.has('portal_proxima') ? ['padroes'] : []).concat(PERM.has('portal_at') || PERM.has('portal_at_todos') ? ['produtos'] : []);
   let cache = null; try { cache = JSON.parse(lsGet(CACHE_KEY) || 'null'); } catch (e) { cache = null; }
   if (!cache || cache.email !== (SESSAO && SESSAO.email)) cache = { email: SESSAO && SESSAO.email, v: {}, d: {} };
   const falta = quero.filter((k) => { const v = vers.find((x) => x.chave === k); return v && (cache.v[k] !== v.atualizado_em || !cache.d[k]); });
@@ -785,7 +799,7 @@ async function carregarDados() {
     if (!lsSet(CACHE_KEY, JSON.stringify(cache))) lsSet(CACHE_KEY, null);
   }
   const meta = cache.d.meta || {};
-  D = { cores: cache.d.cores || [], ref: cache.d.ref || [], padroes: cache.d.padroes || [], familias: meta.familias || [], bases: meta.bases || {} };
+  D = { cores: cache.d.cores || [], ref: cache.d.ref || [], padroes: cache.d.padroes || [], familias: meta.familias || [], bases: meta.bases || {}, produtos: cache.d.produtos || [] };
   const s = vers.find((x) => x.chave === 'sync');
   D.atualizado = s ? s.atualizado_em : (vers.find((x) => x.chave === 'cores') || {}).atualizado_em;
   D.refPorI = new Map(D.ref.map((r) => [r.i, r])); D.corPorK = new Map(D.cores.map((c) => [c.k, c]));
@@ -1128,6 +1142,169 @@ async function consDetalhe(id) {
       $('detFoto').innerHTML = `<img src="${u}" alt="foto da consulta" style="max-width:100%;border-radius:8px;border:1px solid var(--line);margin:6px 0">`; }
     catch (e) { $('detFoto').innerHTML = '<div class="small soft">Foto indisponível.</div>'; }
   } else if (c.foto_removida_em) $('detFoto').innerHTML = '<div class="small soft">A foto saiu do portal depois de 12 meses (o laboratório guarda uma cópia).</div>';
+}
+
+/* ══ Assistência Técnica (09/11/2026) ══
+   Alexander: 1a (abre quem está na obra, pelo portal), 2a (o laboratório cria/vincula o registro), 3a (volta status, registro,
+   parecer completo e PDF), 4a (até 10 fotos; até 2 vídeos de até 50 MB; vídeo 60 dias no portal, foto 12 meses — o Lab01 guarda). */
+const AT_BUCKET = 'portal-at', AT_MAX_FOTOS = 10, AT_MAX_VIDEOS = 2, AT_MAX_VIDEO = 50 * 1048576;
+const AT_PROBLEMAS = ['Fissura / trinca', 'Descolamento / falta de aderência', 'Esfarelamento / pulverulência', 'Eflorescência / manchas', 'Diferença de cor', 'Consistência / trabalhabilidade', 'Pega (rápida ou lenta)', 'Outro'];
+const AT_ST = { aberto: '📨 Aberto — aguardando o laboratório', recebido: '📥 Recebido pelo laboratório', em_ensaio: '🧪 Em ensaio no laboratório', parecer: '📝 Parecer emitido' };
+const AT_RES = { procedente: ['Procedente', '#fdecea', '#b71c1c'], nao_procedente: ['Não procedente', '#e8f5e9', '#1b5e20'], parcial: ['Parcialmente procedente', '#fff8e1', '#8d6e00'] };
+let AT = [], AT_FOTOS = [], AT_VIDEOS = [];
+$('atSoMeus').addEventListener('change', atDesenhar);
+function atNovo() {
+  AT_FOTOS = []; AT_VIDEOS = [];
+  const prods = (D && D.produtos || []).slice().sort((a, b) => String(a.n).localeCompare(String(b.n), 'pt-BR'));
+  const t = (id, rot, ph, extra) => `<div class="field"><label>${rot}</label><input class="inp" id="${id}" placeholder="${ph || ''}" ${extra || ''}></div>`;
+  $('atForm').innerHTML = `<div class="card"><h2>Novo chamado de Assistência Técnica</h2>
+    <div class="small soft" style="margin-bottom:8px">Campos com * são obrigatórios. Preencha na obra, pelo celular, e tire as fotos na hora.</div>
+    ${t('atCli', 'Cliente *', 'Construtora / revenda / consumidor', 'maxlength="200"')}
+    ${t('atObra', 'Obra / endereço *', 'Rua, número, bairro, cidade', 'maxlength="300"')}
+    ${t('atContato', 'Contato na obra', 'Nome e telefone', 'maxlength="200"')}
+    ${t('atRep', 'Representante', '', 'maxlength="120" value="' + esc((ACESSO && ACESSO.nome) || '') + '"')}
+    <div class="field"><label>Produto *</label><select class="inp" id="atProd"><option value="">—</option>${prods.map((p) => `<option value="${esc(p.c)}">${esc(p.n)} (${esc(p.c)})</option>`).join('')}<option value="?">Não sei / outro</option></select></div>
+    <div class="bar" style="align-items:flex-end">
+      <div class="field" style="flex:1 1 140px;margin:0"><label>Lote (do saco)</label><input class="inp" id="atLote" maxlength="60" style="width:100%"></div>
+      <div class="field" style="flex:1 1 140px;margin:0"><label>Data de fabricação</label><input class="inp" id="atFab" type="date" style="width:100%"></div></div>
+    <div class="bar" style="align-items:flex-end;margin-top:8px">
+      <div class="field" style="flex:1 1 140px;margin:0"><label>Quantidade usada</label><input class="inp" id="atQtd" maxlength="120" placeholder="Ex.: 40 sacos" style="width:100%"></div>
+      <div class="field" style="flex:1 1 140px;margin:0"><label>Data da aplicação</label><input class="inp" id="atAplic" type="date" style="width:100%"></div></div>
+    <div class="field" style="margin-top:8px"><label>Problema *</label><div>${AT_PROBLEMAS.map((p, i) => `<label class="chip" style="cursor:pointer;padding:4px 10px;font-size:12.5px;color:var(--tx)"><input type="checkbox" data-atp="${i}"> ${esc(p)}</label>`).join(' ')}</div></div>
+    <div class="field"><label>Descrição do problema *</label><textarea class="inp" id="atDesc" rows="4" maxlength="4000" placeholder="O que aparece, onde, desde quando, quanto da área foi afetada"></textarea></div>
+    <div class="field"><label>Condições da aplicação</label><textarea class="inp" id="atCond" rows="3" maxlength="2000" placeholder="Substrato, preparo, água usada, clima, cura, ferramentas"></textarea></div>
+    <div class="field"><label><input type="checkbox" id="atAmo"> Amostra coletada para o laboratório</label>
+      <div id="atAmoBox" style="display:none" class="bar"><input class="inp" id="atAmoQtd" maxlength="120" placeholder="O quê e quanto (ex.: 2 sacos fechados, pedaço do reboco)" style="flex:1 1 220px"><input class="inp" id="atAmoEnvio" maxlength="200" placeholder="Como vai chegar (ex.: com o representante, na sexta)" style="flex:1 1 220px"></div></div>
+    <div class="field"><label>Fotos (até ${AT_MAX_FOTOS})</label><label class="btn" style="cursor:pointer">📷 Tirar ou escolher fotos<input type="file" id="atFotosInp" accept="image/*" multiple style="display:none"></label><div id="atFotosPrev" class="bar" style="margin-top:6px"></div></div>
+    <div class="field"><label>Vídeos (até ${AT_MAX_VIDEOS}, de até 50 MB cada — grave curto, em 720p)</label><label class="btn" style="cursor:pointer">🎥 Escolher vídeo<input type="file" id="atVidInp" accept="video/*" style="display:none"></label><div id="atVidPrev" class="small" style="margin-top:6px"></div></div>
+    <div class="small soft" id="atProg"></div>
+    <div class="bar"><button class="btn btn-p" id="atEnviar" onclick="atEnviar()">Enviar chamado ao laboratório</button><button class="btn" onclick="$('atForm').innerHTML=''">Cancelar</button></div></div>`;
+  $('atAmo').addEventListener('change', () => { $('atAmoBox').style.display = $('atAmo').checked ? 'flex' : 'none'; });
+  $('atFotosInp').addEventListener('change', async (e) => {
+    for (const f of [...(e.target.files || [])]) {
+      if (AT_FOTOS.length >= AT_MAX_FOTOS) { toast('Até ' + AT_MAX_FOTOS + ' fotos'); break; }
+      try { AT_FOTOS.push(await atReduzir(f)); } catch (x) { toast('Não consegui usar uma das fotos'); }
+    }
+    e.target.value = ''; atPrevFotos();
+  });
+  $('atVidInp').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    if (AT_VIDEOS.length >= AT_MAX_VIDEOS) { toast('Até ' + AT_MAX_VIDEOS + ' vídeos'); return; }
+    if (f.size > AT_MAX_VIDEO) { toast('Vídeo com ' + Math.round(f.size / 1048576) + ' MB: o limite é 50 MB. Grave mais curto ou em 720p.', 6000); return; }
+    AT_VIDEOS.push(f); atPrevVideos();
+  });
+  $('atForm').scrollIntoView({ behavior: 'smooth' });
+}
+function atReduzir(f) {
+  return new Promise((ok, erro) => {
+    const url = URL.createObjectURL(f), img = new Image();
+    img.onload = () => { const k = Math.min(1, 1600 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url); cv.toBlob((b) => b ? ok({ blob: b, url: URL.createObjectURL(b) }) : erro(new Error('foto')), 'image/jpeg', 0.82); };
+    img.onerror = () => { URL.revokeObjectURL(url); erro(new Error('foto')); };
+    img.src = url;
+  });
+}
+function atPrevFotos() {
+  $('atFotosPrev').innerHTML = AT_FOTOS.map((f, i) => `<span style="position:relative;display:inline-block"><img src="${f.url}" alt="" style="width:76px;height:76px;object-fit:cover;border-radius:6px;border:1px solid var(--line)">
+    <button class="btn" style="position:absolute;top:2px;right:2px;padding:0 6px;font-size:11px" onclick="AT_FOTOS.splice(${i},1);atPrevFotos()">✕</button></span>`).join('') || '<span class="small soft">Nenhuma foto.</span>';
+}
+function atPrevVideos() {
+  $('atVidPrev').innerHTML = AT_VIDEOS.map((f, i) => `<div>🎥 ${esc(f.name || 'vídeo')} · ${Math.round(f.size / 1048576 * 10) / 10} MB <button class="btn" style="padding:0 7px;font-size:11px" onclick="AT_VIDEOS.splice(${i},1);atPrevVideos()">tirar</button></div>`).join('');
+}
+function atUpload(caminho, corpo, tipo, aoAndar) {
+  return new Promise(async (ok, erro) => {
+    const tk = await tokenValido(); if (!tk) { erro(new Error('Entre de novo.')); return; }
+    const x = new XMLHttpRequest(); x.open('POST', `${SUPABASE_URL}/storage/v1/object/${AT_BUCKET}/${caminho}`);
+    x.setRequestHeader('apikey', SUPABASE_KEY); x.setRequestHeader('Authorization', 'Bearer ' + tk); x.setRequestHeader('Content-Type', tipo); x.setRequestHeader('x-upsert', 'false');
+    if (aoAndar) x.upload.onprogress = (ev) => { if (ev.lengthComputable) aoAndar(ev.loaded / ev.total); };
+    x.onload = () => (x.status >= 200 && x.status < 300) ? ok() : erro(new Error('envio do arquivo falhou (HTTP ' + x.status + ')'));
+    x.onerror = () => erro(new Error('sem conexão para enviar o arquivo'));
+    x.send(corpo);
+  });
+}
+async function atEnviar() {
+  const v = (id) => ($(id).value || '').trim();
+  const probs = [...document.querySelectorAll('[data-atp]')].filter((c) => c.checked).map((c) => AT_PROBLEMAS[Number(c.dataset.atp)]);
+  if (!v('atCli')) { toast('Informe o cliente'); return; }
+  if (!v('atObra')) { toast('Informe a obra / endereço'); return; }
+  if (!v('atProd')) { toast('Escolha o produto (ou "Não sei / outro")'); return; }
+  if (!probs.length) { toast('Marque pelo menos um tipo de problema'); return; }
+  if (!v('atDesc')) { toast('Descreva o problema'); return; }
+  const prod = (D.produtos || []).find((p) => String(p.c) === v('atProd'));
+  const btn = $('atEnviar'); btn.disabled = true;
+  try {
+    const pasta = `${await meuId()}/${uid()}`, fotos = [], videos = [];
+    for (let i = 0; i < AT_FOTOS.length; i++) {
+      $('atProg').textContent = `Enviando foto ${i + 1} de ${AT_FOTOS.length}…`;
+      const c = `${pasta}/foto${i + 1}.jpg`; await atUpload(c, AT_FOTOS[i].blob, 'image/jpeg'); fotos.push(c);
+    }
+    for (let i = 0; i < AT_VIDEOS.length; i++) {
+      const f = AT_VIDEOS[i], ext = ((f.name || '').match(/\.(mp4|mov|webm|3gp|m4v)$/i) || [, 'mp4'])[1].toLowerCase();
+      const tipo = f.type || ({ mov: 'video/quicktime', webm: 'video/webm', '3gp': 'video/3gpp' }[ext] || 'video/mp4');
+      const c = `${pasta}/video${i + 1}.${ext}`;
+      await atUpload(c, f, tipo === 'video/x-m4v' ? 'video/mp4' : tipo, (fr) => { $('atProg').textContent = `Enviando vídeo ${i + 1} de ${AT_VIDEOS.length}… ${Math.round(fr * 100)}%`; });
+      videos.push({ path: c, nome: (f.name || 'video').slice(0, 120), bytes: f.size });
+    }
+    $('atProg').textContent = 'Gravando o chamado…';
+    const linha = { cliente: v('atCli'), obra: v('atObra'), contato: v('atContato'), representante: v('atRep'),
+      produto_codigo: v('atProd') === '?' ? '' : v('atProd'), produto_nome: prod ? prod.n : (v('atProd') === '?' ? 'não informado' : ''),
+      lote: v('atLote'), fabricacao: v('atFab'), quantidade: v('atQtd'), data_aplicacao: v('atAplic'), problemas: probs, descricao: v('atDesc'), condicoes: v('atCond'),
+      amostra: $('atAmo').checked ? { coletada: true, oque: v('atAmoQtd'), envio: v('atAmoEnvio') } : { coletada: false }, fotos, videos };
+    await api('/rest/v1/portal_at', { method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(linha) });
+    $('atForm').innerHTML = '<div class="card"><b class="ok">✓ Chamado enviado ao laboratório.</b> <span class="small soft">O número AT-xxxx sai na próxima sincronização (de hora em hora, das 7h às 18h).</span></div>';
+    AT_FOTOS = []; AT_VIDEOS = []; atCarregar();
+  } catch (e) { toast('Não foi possível enviar: ' + e.message, 7000); $('atProg').textContent = ''; btn.disabled = false; }
+}
+async function atCarregar() {
+  $('atLista').innerHTML = '<div class="soft">Carregando…</div>';
+  try { AT = await (await api('/rest/v1/portal_at?select=*&order=id.desc&limit=300')).json(); atDesenhar(); }
+  catch (e) { $('atLista').innerHTML = `<div class="bad">Não foi possível carregar: ${esc(e.message)}</div>`; }
+}
+function atStatus(c) { return c.status === 'em_ensaio' && c.registro ? '🧪 Em ensaio no laboratório (registro ' + esc(c.registro) + ')' : (AT_ST[c.status] || esc(c.status)); }
+function atDesenhar() {
+  const meu = ACESSO && ACESSO.user_id, so = $('atSoMeus').checked, todos = PERM.has('portal_at_todos');
+  const L = AT.filter((c) => !so || c.user_id === meu);
+  $('atLista').innerHTML = L.length ? `<div class="card">${L.map((c) => { const r = c.parecer && AT_RES[c.parecer.resultado];
+    return `<div class="item" style="cursor:pointer" onclick="atDetalhe(${c.id})"><span style="font-size:24px">🛠</span>
+      <div style="flex:1;min-width:0"><b>${c.numero ? esc(c.numero) : '<span class="soft">sem número ainda</span>'}</b> <span class="small soft">· ${dataBR(c.criado_em)}</span>
+      <div class="small">${esc(c.cliente)} · ${esc(c.obra)}${c.produto_nome ? ' · ' + esc(c.produto_nome) : ''}</div>
+      <div class="small soft">${atStatus(c)}${r ? ` · <b style="color:${r[2]}">${r[0]}</b>` : ''}${c.pdf_path ? ' · 📄 relatório' : ''}${todos ? ' · ' + esc(c.email) : ''}</div></div></div>`; }).join('')}</div>`
+    : '<div class="card soft">Nenhum chamado ainda.</div>';
+}
+async function atBlob(c) { const r = await api(`/storage/v1/object/authenticated/${AT_BUCKET}/${c.split('/').map(encodeURIComponent).join('/')}`); return URL.createObjectURL(await r.blob()); }
+async function atDetalhe(id) {
+  const c = AT.find((x) => x.id === id); if (!c) return;
+  const p = c.parecer, r = p && AT_RES[p.resultado], am = c.amostra || {};
+  const linha = (rot, v) => v ? `<tr><th style="width:34%">${rot}</th><td>${esc(v)}</td></tr>` : '';
+  $('detBox').innerHTML = `<div class="bar"><h2 style="flex:1;margin:0">${c.numero ? esc(c.numero) : 'Chamado #' + c.id} · Assistência Técnica</h2><button class="btn" onclick="fechar('det')">Fechar</button></div>
+    <div class="info"><b>${atStatus(c)}</b>${c.recebida_em ? ' · recebido em ' + dataBR(c.recebida_em) : ''}</div>
+    ${p ? `<div class="card" style="background:${r ? r[1] : '#f4f4f4'};border-color:${r ? r[2] : '#ccc'}"><b style="color:${r ? r[2] : '#333'}">📝 Parecer técnico: ${r ? r[0] : esc(p.resultado)}</b>
+      <div class="small soft">${p.por ? 'Por ' + esc(p.por) : ''}${p.em ? ' · ' + dataBR(p.em) : ''}${c.registro ? ' · registro ' + esc(c.registro) : ''}</div>
+      ${p.comentario ? `<div style="margin-top:6px;white-space:pre-wrap">${esc(p.comentario)}</div>` : ''}<div id="atParFotos" class="bar" style="margin-top:6px"></div>
+      ${p.videos ? `<div class="small soft">${p.videos} vídeo(s) do parecer guardado(s) no laboratório.</div>` : ''}</div>` : ''}
+    ${c.pdf_path ? `<div class="bar"><button class="btn btn-p" id="atPdf">📄 Baixar o relatório (PDF)</button></div>` : ''}
+    <table class="tbl">${linha('Aberto em', dataBR(c.criado_em))}${linha('Por', c.email)}${linha('Cliente', c.cliente)}${linha('Obra / endereço', c.obra)}${linha('Contato', c.contato)}${linha('Representante', c.representante)}
+      ${linha('Produto', [c.produto_nome, c.produto_codigo].filter(Boolean).join(' · '))}${linha('Lote', c.lote)}${linha('Fabricação', c.fabricacao ? c.fabricacao.split('-').reverse().join('/') : '')}
+      ${linha('Quantidade', c.quantidade)}${linha('Aplicação', c.data_aplicacao ? c.data_aplicacao.split('-').reverse().join('/') : '')}${linha('Problema', (c.problemas || []).join(', '))}
+      ${linha('Descrição', c.descricao)}${linha('Condições', c.condicoes)}${linha('Amostra', am.coletada ? ['coletada', am.oque, am.envio].filter(Boolean).join(' · ') : 'não coletada')}</table>
+    <h3>Fotos e vídeos</h3><div id="atFotos" class="bar"></div><div id="atVids"></div>`;
+  abrir('det');
+  const fotosEm = async (lista, alvo) => { for (const f of lista || []) { try { const u = await atBlob(f); const el = document.getElementById(alvo); if (el) el.insertAdjacentHTML('beforeend', `<a href="${u}" target="_blank"><img src="${u}" alt="" style="width:110px;height:110px;object-fit:cover;border-radius:6px;border:1px solid var(--line)"></a>`); } catch (e) {} } };
+  if (c.fotos_removidas_em) $('atFotos').innerHTML = '<span class="small soft">As fotos saíram do portal depois de 12 meses (o laboratório guarda uma cópia).</span>';
+  else fotosEm(c.fotos, 'atFotos');
+  if (p && p.fotos) fotosEm(p.fotos, 'atParFotos');
+  $('atVids').innerHTML = c.videos_removidos_em ? '<div class="small soft">Os vídeos saíram do portal depois de 60 dias (o laboratório guarda uma cópia).</div>'
+    : (c.videos || []).map((v, i) => `<div class="small" style="margin-top:6px">🎥 ${esc(v.nome)} · ${Math.round((v.bytes || 0) / 1048576 * 10) / 10} MB <button class="btn" style="padding:2px 8px" data-atvid="${i}">assistir</button></div>`).join('');
+  document.querySelectorAll('[data-atvid]').forEach((b) => b.addEventListener('click', async () => {
+    b.disabled = true; b.textContent = 'carregando…';
+    try { const u = await atBlob(c.videos[Number(b.dataset.atvid)].path); b.parentNode.insertAdjacentHTML('afterend', `<video src="${u}" controls style="width:100%;max-height:320px;border-radius:8px;background:#000;margin-top:4px"></video>`); b.remove(); }
+    catch (e) { b.textContent = 'não carregou'; }
+  }));
+  const bp = $('atPdf'); if (bp) bp.addEventListener('click', async () => {
+    try { const u = await atBlob(c.pdf_path); const a = document.createElement('a'); a.href = u; a.download = c.pdf_nome || ((c.numero || 'AT') + '.pdf'); document.body.appendChild(a); a.click(); a.remove(); }
+    catch (e) { toast('Não foi possível baixar o PDF'); }
+  });
 }
 
 iniciar();

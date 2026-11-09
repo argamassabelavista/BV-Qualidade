@@ -340,7 +340,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <button class="nb" onclick="setPage('ens',this)">&#129514; Ensaios</button>
   <button class="nb" onclick="setPage('rel',this)">&#128196; Relatório gerencial</button>
   <button class="nb" onclick="setPage('usu',this)" style="display:none">&#128100; Usuários</button>
-  <a class="nb" id="nbPortal" href="portal.html" style="display:none;text-decoration:none;margin-left:auto">&#127912; Portal de cores &#8599;</a>
+  <a class="nb" id="nbPortal" href="portal.html" style="display:none;text-decoration:none;margin-left:auto">&#127912; Portal &#8599;</a>
 </nav>
 <!-- 09/11/2026: sem nenhuma permissão -->
 <div id="semAcesso" style="display:none;margin:40px auto;max-width:520px;text-align:center;color:var(--gy2);font-size:14px;line-height:1.6">
@@ -2175,8 +2175,8 @@ function renderEnsaiosDiv(){
 // é no servidor (RLS em ensaios/config e conferência nas funções relatorio-gerencial e acessos).
 let MEU_ACESSO = null, PERM = null;
 const PAGINA_PERM = { dash: 'cq', dados: 'cq', ind: 'cq', cores: 'cores', ens: 'ensaios', rel: ['relatorio', 'revisor'], usu: 'usuarios' };
-const PERM_ROTULO = { cq: 'Ver CQ', revisor: 'Revisor', relatorio: 'Relatório gerencial', cores: 'Cores', ensaios: 'Ensaios', portal_catalogo: 'Portal: catálogo', portal_proxima: 'Portal: cor mais próxima', portal_consultas_todas: 'Portal: consultas de todos', usuarios: 'Usuários (admin)' };
-const PERM_DICA = { cq: 'abas Dashboard, Base de Dados e Indicadores', revisor: 'salvar Indicadores; gerar/editar/publicar o Relatório gerencial', relatorio: 'ler o Relatório gerencial publicado', cores: 'aba Cores (contador do Desenvolvimento de Cor)', ensaios: 'aba Ensaios (diversificação)', portal_catalogo: 'Portal de cores: catálogo (sem dosagem)', portal_proxima: 'Portal de cores: cor mais próxima por foto, valores ou Coralis; enviar consultas ao laboratório e ver as próprias', portal_consultas_todas: 'Portal de cores: ver as consultas de todos os usuários', usuarios: 'esta aba: criar usuários e marcar permissões' };
+const PERM_ROTULO = { cq: 'Ver CQ', revisor: 'Revisor', relatorio: 'Relatório gerencial', cores: 'Cores', ensaios: 'Ensaios', portal_catalogo: 'Portal: catálogo', portal_proxima: 'Portal: cor mais próxima', portal_consultas_todas: 'Portal: consultas de todos', portal_at: 'Portal: AT', portal_at_todos: 'Portal: AT de todos', usuarios: 'Usuários (admin)' };
+const PERM_DICA = { cq: 'abas Dashboard, Base de Dados e Indicadores', revisor: 'salvar Indicadores; gerar/editar/publicar o Relatório gerencial', relatorio: 'ler o Relatório gerencial publicado', cores: 'aba Cores (contador do Desenvolvimento de Cor)', ensaios: 'aba Ensaios (diversificação)', portal_catalogo: 'Portal de cores: catálogo (sem dosagem)', portal_proxima: 'Portal de cores: cor mais próxima por foto, valores ou Coralis; enviar consultas ao laboratório e ver as próprias', portal_consultas_todas: 'Portal de cores: ver as consultas de todos os usuários', portal_at: 'Portal: abrir chamados de Assistência Técnica e acompanhar os próprios (parecer e relatório)', portal_at_todos: 'Portal: ver os chamados de AT de todos', usuarios: 'esta aba: criar usuários e marcar permissões' };
 function temPerm(p) { return !!(PERM && PERM.has(p)); }
 function podePagina(id) { if (!PERM) return true; const p = PAGINA_PERM[id]; if (!p) return true; return Array.isArray(p) ? p.some(temPerm) : temPerm(p); }
 function idDoBotao(b) { const m = String(b.getAttribute('onclick') || '').match(/setPage\('([^']+)'/); return m ? m[1] : null; }
@@ -2187,7 +2187,7 @@ function aplicarPermissoes() {
   const on = document.querySelector('.page.on'), idOn = on ? on.id.replace('page-', '') : 'dash';
   const livres = botoes.filter((b) => b.style.display !== 'none');
   document.getElementById('semAcesso').style.display = livres.length ? 'none' : 'block';
-  const temPortal = PERM && ['portal_catalogo', 'portal_proxima', 'portal_consultas_todas'].some(temPerm);   // 09/11/2026
+  const temPortal = PERM && ['portal_catalogo', 'portal_proxima', 'portal_consultas_todas', 'portal_at', 'portal_at_todos'].some(temPerm);   // 09/11/2026
   const np = document.getElementById('nbPortal'); if (np) np.style.display = temPortal ? '' : 'none';
   const sp = document.getElementById('semAcessoPortal'); if (sp) sp.style.display = temPortal ? '' : 'none';
   if (!livres.length) { document.querySelectorAll('.page').forEach((p) => p.classList.remove('on')); return; }
