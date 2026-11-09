@@ -339,7 +339,11 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <button class="nb" onclick="setPage('cores',this)">&#127912; Cores</button>
   <button class="nb" onclick="setPage('ens',this)">&#129514; Ensaios</button>
   <button class="nb" onclick="setPage('rel',this)">&#128196; Relatório gerencial</button>
+  <button class="nb" onclick="setPage('usu',this)" style="display:none">&#128100; Usuários</button>
 </nav>
+<!-- 09/11/2026: sem nenhuma permissão -->
+<div id="semAcesso" style="display:none;margin:40px auto;max-width:520px;text-align:center;color:var(--gy2);font-size:14px;line-height:1.6">
+  <div style="font-size:34px">🔒</div><b>Seu acesso ainda não foi liberado.</b><br>Peça ao administrador do painel para marcar as suas permissões.</div>
 
 <!-- BANNER FONTE DE DADOS -->
 <div id="dataBanner" style="display:none;padding:6px 14px;font-size:11.5px;font-weight:600;letter-spacing:.02em;text-align:center;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;"></div>
@@ -708,6 +712,24 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <div class="ks" id="ensFonte" style="margin-top:8px"></div>
 </div>
 
+<!-- 09/11/2026: USUÁRIOS E PERMISSÕES (só para quem tem a permissão "usuarios") -->
+<div class="page" id="page-usu">
+  <div class="tbar" style="align-items:flex-end;gap:10px">
+    <div class="fl" style="font-size:12.5px;color:var(--gy2)">Usuários do painel e o que cada um pode ver</div>
+    <button class="btn-import" onclick="usuNovoAbrir()">＋ Novo usuário</button>
+    <button class="rg-btn2" onclick="usuHistorico()">Histórico de mudanças</button>
+    <span class="import-msg" id="usuMsg" style="margin-left:auto"></span>
+  </div>
+  <div id="usuNovo" class="cb2 mb" style="display:none"></div>
+  <div id="usuSenhaBox" class="cb2 mb" style="display:none"></div>
+  <div class="tbox">
+    <div class="thd"><div class="thtit">Usuários</div><div class="tcnt" id="usuCnt">—</div></div>
+    <div class="tw" style="max-height:620px"><table><thead id="usuHead"></thead><tbody id="usuBody"></tbody></table></div>
+  </div>
+  <div id="usuHist" class="tbox" style="margin-top:16px;display:none"></div>
+  <div class="ks" style="margin-top:8px">Desativar bloqueia o acesso na hora (nada é apagado). Senha provisória: aparece uma única vez — anote e repasse; no primeiro acesso a pessoa é obrigada a trocar. A trava vale no servidor: sem a permissão, o banco não entrega o dado.</div>
+</div>
+
 <!-- Bloqueio de acesso (senha de visualização) -->
 <div class="pwd-overlay" id="viewLock" style="display:flex;z-index:9999">
   <div class="pwd-box">
@@ -742,7 +764,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
            onkeydown="if(event.key==='Enter')trocarSenhaConfirmar()"></div>
     <div class="pwd-err" id="tsErr"></div>
     <div class="pwd-actions">
-      <button class="pwd-btn-cancel" onclick="trocarSenhaFechar()">Cancelar</button>
+      <button class="pwd-btn-cancel" id="tsCancelar" onclick="trocarSenhaFechar()">Cancelar</button>
       <button class="pwd-btn-ok" id="tsBtn" onclick="trocarSenhaConfirmar()">Trocar</button>
     </div>
   </div>
@@ -881,10 +903,11 @@ function sessaoExpirada() {
   mostrarLogin('Sua sessão expirou. Entre de novo.');
 }
 // Trocar a própria senha: confere a senha atual no Supabase e grava a nova (PUT /auth/v1/user).
-function trocarSenhaAbrir() {
+function trocarSenhaAbrir(obrigatoria) {
   if (!SESSAO) return;
+  const cb = document.getElementById('tsCancelar'); if (cb) cb.style.display = obrigatoria === true ? 'none' : '';
   ['tsAtual', 'tsNova', 'tsConf'].forEach((id) => { document.getElementById(id).value = ''; });
-  document.getElementById('tsErr').textContent = '';
+  document.getElementById('tsErr').textContent = obrigatoria === true ? 'Primeiro acesso: troque a senha provisória por uma sua.' : '';
   document.getElementById('tsEmail').textContent = SESSAO.email || '';
   document.getElementById('trocaSenha').style.display = 'flex';
   setTimeout(() => document.getElementById('tsAtual').focus(), 50);
@@ -917,6 +940,7 @@ async function trocarSenhaConfirmar() {
       return;
     }
     trocarSenhaFechar();
+    try { if (MEU_ACESSO && MEU_ACESSO.troca_senha) { await acessosApi({ acao: 'senha_trocada' }); MEU_ACESSO.troca_senha = false; } } catch (e) {}
     alert('Senha trocada. Use a nova senha no próximo acesso.');
   } finally { btn.disabled = false; }
 }
@@ -1014,9 +1038,9 @@ const saveLocalStorage = () => {
 // servidor (R1, 29/09/2026). Devolve {ok, erro}.
 async function saveIndicadoresSupabase() {
   if (SB_MODE !== 'online') return { ok: false, erro: 'Sem conexão com a nuvem — nada foi gravado.' };
-  if (!REL_SENHA) return { ok: false, erro: 'Informe a senha do revisor.' };
+  if (!temPerm('revisor')) return { ok: false, erro: 'Seu usuário não tem a permissão de Revisor.' };
   try {
-    await relApi({ acao: 'salvar_indicadores', senha: REL_SENHA, indicadores_extras: INDICADORES_EXTRAS, indicadores_ocultos: [...INDICADORES_MESES_OCULTOS] });
+    await relApi({ acao: 'salvar_indicadores', indicadores_extras: INDICADORES_EXTRAS, indicadores_ocultos: [...INDICADORES_MESES_OCULTOS] });
     return { ok: true };
   } catch (e) {
     if (e.status === 401) REL_SENHA = null;
@@ -1996,7 +2020,7 @@ function doResetConfirmed(){
 }
 
 // ══ NAV ══
-function setPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();if(id==='rel')relInit();if(id==='cores')loadCores();if(id==='ens')loadEnsaiosDiv();}
+function setPage(id,btn){if(!podePagina(id))return;document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();if(id==='rel')relInit();if(id==='cores')loadCores();if(id==='ens')loadEnsaiosDiv();if(id==='usu')usuCarregar();}
 // ══ CORES — contador do Desenvolvimento de Cor (Notion) ══ 22/10/2026
 // Dados: config.cores_mes, gravado pelo sync do Laboratório (sync_bv_qc_master.js) a partir do CSV do Notion.
 // 1 solicitação = 1 linha do Notion (ID + cor + produto), no mês da "Data do recebimento".
@@ -2143,6 +2167,120 @@ function renderEnsaiosDiv(){
   document.getElementById('ensCnt').textContent = M.length + ' meses';
   const dt = s => s ? new Date(s).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
   document.getElementById('ensFonte').textContent = `Fonte: leituras de todos os projetos do Laboratório (Lab01, desde nov/25) + histórico da planilha já na base deste painel (antes de nov/25, só Controle de Qualidade — o P&D em planilha não está aqui). Tipo de ensaio = a leitura sem a idade (Compressão 1, 7 e 28 dias = Compressão). Quando as duas bases têm o mesmo tipo no mesmo mês, vale o maior número. Mês = data da leitura, como no Contador de Leituras do app. Só meses fechados; o mês corrente aparece como parcial nos cartões. Contado pelo sync em ${dt(D.ts)}.`;
+}
+// ══ PERMISSÕES POR USUÁRIO (09/11/2026) ══
+// Cada login tem uma linha em acesso_usuarios (o banco só devolve a própria). Abas sem permissão somem; a trava real
+// é no servidor (RLS em ensaios/config e conferência nas funções relatorio-gerencial e acessos).
+let MEU_ACESSO = null, PERM = null;
+const PAGINA_PERM = { dash: 'cq', dados: 'cq', ind: 'cq', cores: 'cores', ens: 'ensaios', rel: ['relatorio', 'revisor'], usu: 'usuarios' };
+const PERM_ROTULO = { cq: 'Ver CQ', revisor: 'Revisor', relatorio: 'Relatório gerencial', cores: 'Cores', ensaios: 'Ensaios', usuarios: 'Usuários (admin)' };
+const PERM_DICA = { cq: 'abas Dashboard, Base de Dados e Indicadores', revisor: 'salvar Indicadores; gerar/editar/publicar o Relatório gerencial', relatorio: 'ler o Relatório gerencial publicado', cores: 'aba Cores (contador do Desenvolvimento de Cor)', ensaios: 'aba Ensaios (diversificação)', usuarios: 'esta aba: criar usuários e marcar permissões' };
+function temPerm(p) { return !!(PERM && PERM.has(p)); }
+function podePagina(id) { if (!PERM) return true; const p = PAGINA_PERM[id]; if (!p) return true; return Array.isArray(p) ? p.some(temPerm) : temPerm(p); }
+function idDoBotao(b) { const m = String(b.getAttribute('onclick') || '').match(/setPage\('([^']+)'/); return m ? m[1] : null; }
+function aplicarPermissoes() {
+  const botoes = [...document.querySelectorAll('.nav .nb')];
+  botoes.forEach((b) => { const id = idDoBotao(b); if (id) b.style.display = podePagina(id) ? '' : 'none'; });
+  const rb = document.getElementById('relBtnRevisor'); if (rb) rb.style.display = temPerm('revisor') ? '' : 'none';
+  const on = document.querySelector('.page.on'), idOn = on ? on.id.replace('page-', '') : 'dash';
+  const livres = botoes.filter((b) => b.style.display !== 'none');
+  document.getElementById('semAcesso').style.display = livres.length ? 'none' : 'block';
+  if (!livres.length) { document.querySelectorAll('.page').forEach((p) => p.classList.remove('on')); return; }
+  if (!podePagina(idOn)) { const b = livres[0]; setPage(idDoBotao(b), b); }
+}
+async function carregarPermissoes() {
+  try {
+    const r = await sbGet(`${SUPABASE_URL}/rest/v1/acesso_usuarios?select=*`);
+    const j = r.ok ? await r.json() : [];
+    MEU_ACESSO = (Array.isArray(j) && j[0]) || null;
+  } catch (e) { if (e.semLogin) throw e; MEU_ACESSO = null; }
+  PERM = new Set(MEU_ACESSO && MEU_ACESSO.ativo ? (MEU_ACESSO.permissoes || []) : []);
+  aplicarPermissoes();
+}
+async function aposLogin() {
+  try { await carregarPermissoes(); } catch (e) { return; }
+  if (temPerm('cq')) { loadFromSupabase(); loadIndicadoresSupabase(); }
+  const on = document.querySelector('.page.on'); if (on && on.id === 'page-cores') loadCores(); if (on && on.id === 'page-ens') loadEnsaiosDiv();
+  if (MEU_ACESSO && MEU_ACESSO.troca_senha) trocarSenhaAbrir(true);
+}
+const ACESSOS_URL = SUPABASE_URL + '/functions/v1/acessos';
+async function acessosApi(corpo) {
+  const tk = await tokenValido(); if (!tk) { sessaoExpirada(); throw new Error('sem login'); }
+  const r = await fetch(ACESSOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + tk }, body: JSON.stringify(corpo) });
+  let j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) { const er = new Error((j && j.erro) || ('Erro ' + r.status)); er.status = r.status; throw er; }
+  return j;
+}
+// ── aba Usuários ──
+let USU = null;
+const usuEsc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const usuData = (s) => s ? new Date(s).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'nunca';
+function usuMsg(t, cor) { const el = document.getElementById('usuMsg'); el.textContent = t || ''; el.style.color = cor || ''; }
+async function usuCarregar() {
+  usuMsg('Carregando…');
+  try { USU = await acessosApi({ acao: 'listar' }); usuMsg(''); usuRender(); }
+  catch (e) { usuMsg(e.message, 'var(--red2)'); }
+}
+function usuRender() {
+  const P = USU.permissoes || Object.keys(PERM_ROTULO);
+  document.getElementById('usuHead').innerHTML = `<tr><th>Nome</th><th>E-mail</th><th>Ativo</th>${P.map((p) => `<th style="text-align:center" title="${usuEsc(PERM_DICA[p] || '')}">${usuEsc(PERM_ROTULO[p] || p)}</th>`).join('')}<th>Último acesso</th><th></th></tr>`;
+  document.getElementById('usuBody').innerHTML = USU.usuarios.map((u) => `<tr data-uid="${u.user_id}"${u.ativo ? '' : ' style="opacity:.55"'}>
+    <td><input class="fi" data-f="nome" value="${usuEsc(u.nome)}" style="min-width:150px;background:var(--card)"></td>
+    <td>${usuEsc(u.email)}${u.eu ? ' <span style="color:var(--amb)">(você)</span>' : ''}${u.troca_senha ? '<br><span style="color:#999;font-size:11px">aguardando troca da senha provisória</span>' : ''}</td>
+    <td style="text-align:center"><input type="checkbox" data-f="ativo" ${u.ativo ? 'checked' : ''} ${u.eu ? 'disabled title="Você não pode se desativar"' : ''}></td>
+    ${P.map((p) => `<td style="text-align:center"><input type="checkbox" data-p="${p}" ${u.permissoes.includes(p) ? 'checked' : ''} ${u.eu && p === 'usuarios' ? 'disabled title="Você não pode tirar de si mesmo"' : ''}></td>`).join('')}
+    <td style="color:#999;white-space:nowrap">${usuData(u.ultimo_acesso)}</td>
+    <td style="white-space:nowrap"><button class="btn-import" style="padding:4px 10px" onclick="usuSalvar('${u.user_id}')">Salvar</button>
+      <button class="rg-lnk" onclick="usuNovaSenha('${u.user_id}')">nova senha</button></td></tr>`).join('');
+  document.getElementById('usuCnt').textContent = USU.usuarios.length + ' usuário(s)' + (USU.sem_acesso && USU.sem_acesso.length ? ` · ${USU.sem_acesso.length} login(s) sem permissões cadastradas` : '');
+}
+async function usuSalvar(uid) {
+  const tr = document.querySelector(`#usuBody tr[data-uid="${uid}"]`); if (!tr) return;
+  const corpo = { acao: 'salvar', user_id: uid, nome: tr.querySelector('[data-f="nome"]').value, ativo: tr.querySelector('[data-f="ativo"]').checked,
+    permissoes: [...tr.querySelectorAll('[data-p]')].filter((c) => c.checked).map((c) => c.dataset.p) };
+  usuMsg('Salvando…');
+  try { await acessosApi(corpo); usuMsg('Salvo ✓', 'var(--grn2)'); await usuCarregar(); }
+  catch (e) { usuMsg(e.message, 'var(--red2)'); }
+}
+function usuSenhaMostrar(email, senha, aviso) {
+  const b = document.getElementById('usuSenhaBox'); b.style.display = 'block';
+  b.innerHTML = `<div class="ch"><div class="ct">Senha provisória de ${usuEsc(email)}</div><button class="rg-lnk" onclick="this.closest('#usuSenhaBox').style.display='none';this.closest('#usuSenhaBox').innerHTML=''">fechar</button></div>
+    <div style="padding:8px 4px;font-size:13px"><span style="font-family:monospace;font-size:20px;letter-spacing:2px;background:#111;padding:6px 12px;border-radius:6px;user-select:all">${usuEsc(senha)}</span>
+    <div style="margin-top:8px;color:var(--amb)">${usuEsc(aviso || 'Anote e repasse: esta senha não aparece de novo.')}</div></div>`;
+}
+function usuNovoAbrir() {
+  const b = document.getElementById('usuNovo'), P = (USU && USU.permissoes) || Object.keys(PERM_ROTULO);
+  b.style.display = 'block';
+  b.innerHTML = `<div class="ch"><div class="ct">Novo usuário</div><button class="rg-lnk" onclick="document.getElementById('usuNovo').style.display='none'">cancelar</button></div>
+    <div class="tbar" style="gap:10px;flex-wrap:wrap">
+      <div class="fg"><div class="fl">Nome</div><input class="fi" id="usuNNome" style="min-width:200px;background:var(--card)"></div>
+      <div class="fg"><div class="fl">E-mail</div><input class="fi" id="usuNEmail" type="email" style="min-width:240px;background:var(--card)"></div></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;padding:4px 2px 10px">${P.map((p) => `<label style="font-size:12.5px;color:var(--gy2)" title="${usuEsc(PERM_DICA[p] || '')}"><input type="checkbox" data-np="${p}" ${['cq', 'relatorio', 'cores', 'ensaios'].includes(p) ? 'checked' : ''}> ${usuEsc(PERM_ROTULO[p] || p)}</label>`).join('')}</div>
+    <button class="btn-import" onclick="usuCriar()">Criar e gerar senha provisória</button>`;
+  setTimeout(() => document.getElementById('usuNNome').focus(), 50);
+}
+async function usuCriar() {
+  const corpo = { acao: 'criar', nome: document.getElementById('usuNNome').value, email: document.getElementById('usuNEmail').value,
+    permissoes: [...document.querySelectorAll('[data-np]')].filter((c) => c.checked).map((c) => c.dataset.np) };
+  usuMsg('Criando…');
+  try { const j = await acessosApi(corpo); document.getElementById('usuNovo').style.display = 'none'; usuSenhaMostrar(j.email, j.senha_provisoria, j.aviso); usuMsg('Usuário criado ✓', 'var(--grn2)'); await usuCarregar(); }
+  catch (e) { usuMsg(e.message, 'var(--red2)'); }
+}
+async function usuNovaSenha(uid) {
+  const u = USU.usuarios.find((x) => x.user_id === uid); if (!u) return;
+  if (!confirm(`Gerar uma nova senha provisória para ${u.email}? A senha atual dele deixa de funcionar.`)) return;
+  try { const j = await acessosApi({ acao: 'nova_senha', user_id: uid }); usuSenhaMostrar(j.email, j.senha_provisoria, j.aviso); usuMsg('Senha provisória gerada ✓', 'var(--grn2)'); await usuCarregar(); }
+  catch (e) { usuMsg(e.message, 'var(--red2)'); }
+}
+async function usuHistorico() {
+  const b = document.getElementById('usuHist');
+  if (b.style.display === 'block') { b.style.display = 'none'; return; }
+  try {
+    const j = await acessosApi({ acao: 'historico' });
+    const fmt = (o) => !o ? '' : [o.nome != null ? 'nome: ' + o.nome : '', o.ativo != null ? (o.ativo ? 'ativo' : 'INATIVO') : '', o.permissoes ? (o.permissoes.map((p) => PERM_ROTULO[p] || p).join(', ') || 'sem permissões') : ''].filter(Boolean).join(' · ');
+    b.innerHTML = `<div class="thd"><div class="thtit">Histórico de mudanças</div><div class="tcnt">${j.itens.length}</div></div><div class="tw" style="max-height:420px"><table><thead><tr><th>Quando</th><th>Quem</th><th>Usuário</th><th>Ação</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${j.itens.map((x) => `<tr><td style="white-space:nowrap">${usuData(x.em)}</td><td>${usuEsc(x.por)}</td><td>${usuEsc(x.alvo)}</td><td>${usuEsc(x.acao)}</td><td style="white-space:normal">${usuEsc(fmt(x.antes))}</td><td style="white-space:normal">${usuEsc(fmt(x.depois))}</td></tr>`).join('')}</tbody></table></div>`;
+    b.style.display = 'block';
+  } catch (e) { usuMsg(e.message, 'var(--red2)'); }
 }
 function setFTab(id,btn){document.querySelectorAll('.ftab-page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));document.getElementById('ftab-'+id).classList.add('on');btn.classList.add('on');}
 
@@ -2431,7 +2569,7 @@ async function viewPwdConfirm() {
     err.textContent = '';
     document.getElementById('viewLock').style.display = 'none';
     mostrarUsuario();
-    loadFromSupabase(); loadIndicadoresSupabase();
+    aposLogin();
   } catch (e) {
     err.textContent = (e.status === 400 || e.status === 401) ? '❌ E-mail ou senha incorretos.'
       : (e.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos.' : 'Não foi possível entrar agora (' + (e.message || 'erro') + ').');
@@ -2454,6 +2592,15 @@ async function hashPwd(str) {
 let pwdCallback = null;
 
 function pwdAsk(action, payload, title, sub) {
+  // 09/11/2026: Indicadores — sem senha; vale a permissão "Revisor" do login
+  if (action === 'indAdd' || action === 'indDel' || action === 'indToggle') {
+    if (!temPerm('revisor')) { alert('Seu usuário não tem a permissão de Revisor para alterar os Indicadores.'); try { renderIndicadores(); } catch (e) {} return; }
+    REL_SENHA = 'login';
+    if (action === 'indAdd') doAddIndicador();
+    if (action === 'indDel') doDeleteIndicadorConfirmed(payload);
+    if (action === 'indToggle') toggleMesGraficoConfirmed(payload);
+    return;
+  }
   pwdCallback = {action, payload};
   document.getElementById('pwdTitle').textContent = title;
   document.getElementById('pwdSub').textContent   = sub;
@@ -2498,7 +2645,7 @@ document.getElementById('hDate').textContent=new Date().toLocaleDateString('pt-B
 initSel();
 render();
 // Carregar dados do Supabase de forma assíncrona (substitui cache local se online)
-if (SB_MODE === 'online') { checkViewAccess().then((ok) => { if (ok) { loadFromSupabase(); loadIndicadoresSupabase(); } }); } else { renderIndicadores(); }
+if (SB_MODE === 'online') { checkViewAccess().then((ok) => { if (ok) aposLogin(); }); } else { renderIndicadores(); }
 // Inicializar tabela batch com 5 linhas vazias
 for(let i=0;i<5;i++) addBatchRow();
 
@@ -2518,7 +2665,8 @@ const relPct = (v) => (v === null || v === undefined ? '—' : relNum(v, 1) + '%
 const relData = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
 
 async function relApi(corpo) {
-  const r = await fetch(REL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify(corpo) });
+  const tk = await tokenValido();   // 09/11/2026: a função confere o login e as permissões (sem senha do revisor)
+  const r = await fetch(REL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, ...(tk ? { Authorization: 'Bearer ' + tk } : {}) }, body: JSON.stringify(corpo) });
   let j = null; try { j = await r.json(); } catch (e) { j = null; }
   if (!r.ok) { const err = new Error((j && j.erro) || ('Erro ' + r.status)); err.status = r.status; throw err; }
   return j;
@@ -2571,9 +2719,12 @@ async function relAbrirPublicado(mes) {
 
 // ── revisor ──
 function relAbrirRevisor() {
+  if (!temPerm('revisor')) { relMsg('Seu usuário não tem a permissão de Revisor.', 'var(--red2)'); return; }
   const box = document.getElementById('relRevisor');
   box.style.display = 'block';
-  if (REL_SENHA) relListarMeses(); else setTimeout(() => document.getElementById('relSenha').focus(), 50);
+  document.getElementById('relLogin').style.display = 'none';   // 09/11/2026: sem senha — vale o login
+  REL_SENHA = 'login';
+  relListarMeses();
 }
 function relSairRevisor() {
   REL_SENHA = null;
