@@ -337,6 +337,7 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
   <button class="nb" onclick="setPage('dados',this)">&#9776; Base de Dados</button>
   <button class="nb" onclick="setPage('ind',this)">&#128202; Indicadores</button>
   <button class="nb" onclick="setPage('cores',this)">&#127912; Cores</button>
+  <button class="nb" onclick="setPage('ens',this)">&#129514; Ensaios</button>
   <button class="nb" onclick="setPage('rel',this)">&#128196; Relatório gerencial</button>
 </nav>
 
@@ -676,6 +677,35 @@ tbody tr:hover td{background:rgba(255,255,255,.018)}
     </div>
   </div>
   <div class="ks" id="coresFonte" style="margin-top:8px"></div>
+</div>
+
+<!-- 09/11/2026: ENSAIOS — diversificação (config.ensaios_diversificacao, gravado pelo sync do Laboratório) -->
+<div class="page" id="page-ens">
+  <div class="tbar" style="align-items:flex-end">
+    <div class="fl" style="font-size:12.5px;color:var(--gy2)">Evolução da diversificação dos ensaios — todos os projetos (leituras)</div>
+    <span class="import-msg" id="ensMsg" style="margin-left:auto"></span>
+  </div>
+  <div class="kpis">
+    <div class="kpi cb"><div class="kl">Tipos de ensaio implantados</div><div class="kv" id="ensKAcum">—</div><div class="ks" id="ensKAcumS">acumulado</div></div>
+    <div class="kpi cg"><div class="kl">Tipos feitos no mês</div><div class="kv" id="ensKTipos">—</div><div class="ks" id="ensKTiposS">último mês fechado</div></div>
+    <div class="kpi cs"><div class="kl">Leituras no mês</div><div class="kv" id="ensKLeit">—</div><div class="ks" id="ensKLeitS">todas as leituras realizadas ou previstas</div></div>
+    <div class="kpi ca"><div class="kl">Compressão no volume</div><div class="kv" id="ensKComp">—</div><div class="ks" id="ensKCompS">% das leituras do mês</div></div>
+  </div>
+  <div class="cb2 mb">
+    <div class="ch"><div class="ct">Leituras por mês e tipos de ensaio (no mês e acumulado)</div></div>
+    <div class="cw" style="height:290px"><canvas id="cEns"></canvas></div>
+  </div>
+  <div class="cb2 mb">
+    <div class="ch"><div class="ct">Participação da compressão no volume de leituras</div></div>
+    <div class="cw" style="height:200px"><canvas id="cEnsComp"></canvas></div>
+  </div>
+  <div class="tbox" style="margin-top:16px">
+    <div class="thd"><div class="thtit">Diversificação dos ensaios por mês</div><div class="tcnt" id="ensCnt">—</div></div>
+    <div class="tw" style="max-height:560px">
+      <table><thead><tr><th>Mês</th><th>Leituras</th><th>Tipos no mês</th><th>Acumulado</th><th>% Compressão</th><th>Ensaios novos no mês</th><th>Fonte</th></tr></thead><tbody id="ensBody"></tbody></table>
+    </div>
+  </div>
+  <div class="ks" id="ensFonte" style="margin-top:8px"></div>
 </div>
 
 <!-- Bloqueio de acesso (senha de visualização) -->
@@ -1966,7 +1996,7 @@ function doResetConfirmed(){
 }
 
 // ══ NAV ══
-function setPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();if(id==='rel')relInit();if(id==='cores')loadCores();}
+function setPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById('page-'+id).classList.add('on');btn.classList.add('on');if(id==='dados')rTable();if(id==='ind')renderIndicadores();if(id==='rel')relInit();if(id==='cores')loadCores();if(id==='ens')loadEnsaiosDiv();}
 // ══ CORES — contador do Desenvolvimento de Cor (Notion) ══ 22/10/2026
 // Dados: config.cores_mes, gravado pelo sync do Laboratório (sync_bv_qc_master.js) a partir do CSV do Notion.
 // 1 solicitação = 1 linha do Notion (ID + cor + produto), no mês da "Data do recebimento".
@@ -2058,6 +2088,61 @@ function renderCores(){
   document.getElementById('coresCnt').textContent = D.meses.length + ' meses';
   const dt = s => s ? new Date(s).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
   document.getElementById('coresFonte').textContent = `Fonte: Notion · Desenvolvimento de Cor (CSV de ${dt(D.csvData)}), contado pelo sync em ${dt(D.ts)}. 1 solicitação = 1 linha do Notion (ID + cor + produto). Finalizadas pelo laboratório = Liberado amostra + Aprovado + Reprovado. "Liberado amostra" (aguardando o comercial) = o laboratório finalizou e o comercial ainda não informou a posição do cliente. Aprovado/Reprovado = liberada pelo laboratório e o cliente aprovou/reprovou. Taxa de aprovação = aprovadas ÷ (aprovadas + reprovadas).`;
+}
+// ══ ENSAIOS — diversificação ══ 09/11/2026 (Alexander: "inicialmente só fazíamos compressão, ao longo do tempo foi
+// aumentando a diversificação de ensaios"). Dados: config.ensaios_diversificacao, gravado pelo sync do Laboratório
+// (indicador_ensaios.js): leituras de todos os projetos do Lab01 + histórico da planilha (antes de nov/25, só CQ).
+let ENS_DIV = null;
+async function loadEnsaiosDiv(){
+  const msg = document.getElementById('ensMsg');
+  if (SB_MODE !== 'online') { msg.textContent = 'Sem conexão com o banco.'; return; }
+  try {
+    const r = await sbGet(`${SUPABASE_URL}/rest/v1/config?chave=eq.ensaios_diversificacao&select=valor`);
+    const j = await r.json();
+    ENS_DIV = j && j[0] ? JSON.parse(j[0].valor) : null;
+    msg.textContent = ENS_DIV ? '' : 'Ainda sem dados — o indicador é gravado pelo sync diário do Laboratório.';
+  } catch (e) { if (!e.semLogin) { msg.className = 'import-msg er'; msg.textContent = 'Erro ao carregar: ' + e.message; } }
+  renderEnsaiosDiv();
+}
+function ensNomeTipo(t){ const s = String(t||'').toLowerCase().replace(/\bph\b/g,'pH').replace(/\btmmf\b/g,'TMMF'); return s.charAt(0).toUpperCase() + s.slice(1); }
+function renderEnsaiosDiv(){
+  const D = ENS_DIV; if (!D || !D.meses || !D.meses.length) return;
+  const M = D.meses, ult = M[M.length-1], pri = M.find(x => x.leituras) || M[0];
+  document.getElementById('ensKAcum').textContent = ult.acumulado;
+  document.getElementById('ensKAcumS').textContent = `em ${coresRotMes(pri.mes)}: ${pri.acumulado} · até ${coresRotMes(ult.mes)}: ${ult.acumulado}`;
+  document.getElementById('ensKTipos').textContent = ult.tipos;
+  document.getElementById('ensKTiposS').textContent = `diferentes em ${coresRotMes(ult.mes)}` + (D.atual ? ` · ${coresRotMes(D.atual.mes)} (parcial): ${D.atual.tipos}` : '');
+  document.getElementById('ensKLeit').textContent = ult.leituras;
+  document.getElementById('ensKLeitS').textContent = `em ${coresRotMes(ult.mes)} · em ${coresRotMes(pri.mes)}: ${pri.leituras}` + (D.atual ? ` · ${coresRotMes(D.atual.mes)} (parcial): ${D.atual.leituras}` : '');
+  document.getElementById('ensKComp').textContent = ult.compressaoPct == null ? '—' : ult.compressaoPct.toFixed(0) + '%';
+  document.getElementById('ensKCompS').textContent = `das leituras de ${coresRotMes(ult.mes)} · em ${coresRotMes(pri.mes)}: ${pri.compressaoPct == null ? '—' : pri.compressaoPct.toFixed(0) + '%'}`;
+  const lab = M.map(x => coresRotMes(x.mes));
+  const eixoX = { ticks: { color: '#999', maxRotation: 45, autoSkip: true }, grid: { color: 'rgba(255,255,255,.05)' } };
+  dc('ens');
+  charts['ens'] = new Chart(document.getElementById('cEns'), { type: 'bar',
+    data: { labels: lab, datasets: [
+      { type: 'bar', label: 'Leituras no mês', data: M.map(x => x.leituras), backgroundColor: 'rgba(52,152,219,.55)', borderWidth: 0, yAxisID: 'y', order: 3 },
+      { type: 'line', label: 'Tipos de ensaio no mês', data: M.map(x => x.leituras ? x.tipos : null), spanGaps: true, borderColor: '#2ecc71', backgroundColor: '#2ecc71', borderWidth: 2.5, pointRadius: 4, tension: 0.15, fill: false, yAxisID: 'y1', order: 1 },
+      { type: 'line', label: 'Tipos implantados (acumulado)', data: M.map(x => x.acumulado), borderColor: '#f5b041', backgroundColor: '#f5b041', borderWidth: 2.5, borderDash: [6, 4], pointRadius: 4, tension: 0, stepped: true, fill: false, yAxisID: 'y1', order: 2 } ] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: '#999', font: { size: 11 }, boxWidth: 12, padding: 13 } },
+        tooltip: { callbacks: { afterBody: ctx => { const x = M[ctx[0].dataIndex]; return x.novos && x.novos.length ? ['Novos: ' + x.novos.map(ensNomeTipo).join(', ')] : []; } } } },
+      scales: { x: eixoX,
+        y: { beginAtZero: true, position: 'left', title: { display: true, text: 'leituras', color: '#999' }, ticks: { color: '#999', precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } },
+        y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'tipos de ensaio', color: '#999' }, ticks: { color: '#999', precision: 0 }, grid: { drawOnChartArea: false } } } } });
+  dc('ensComp');
+  charts['ensComp'] = new Chart(document.getElementById('cEnsComp'), { type: 'line',
+    data: { labels: lab, datasets: [{ label: '% Compressão', data: M.map(x => x.compressaoPct), borderColor: '#e74c3c', backgroundColor: '#e74c3c', borderWidth: 2.2, pointRadius: 4, tension: 0.15, spanGaps: true, fill: { target: 'origin', above: 'rgba(231,76,60,.08)' } }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(0) + '% das leituras' } } },
+      scales: { x: eixoX, y: { min: 0, max: 100, ticks: { color: '#999', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,.06)' } } } } });
+  document.getElementById('ensBody').innerHTML = M.slice().reverse().map(x => `<tr${x.leituras ? '' : ' style="opacity:.5"'}>
+    <td>${coresRotMes(x.mes)}</td><td>${x.leituras || '—'}</td><td>${x.leituras ? x.tipos : '—'}</td><td><b>${x.acumulado}</b></td>
+    <td>${x.compressaoPct == null ? '—' : x.compressaoPct.toFixed(0) + '%'}</td>
+    <td style="white-space:normal;max-width:520px">${x.novos && x.novos.length ? x.novos.map(ensNomeTipo).join(', ') : (x.leituras ? '—' : 'sem registro na base')}</td>
+    <td style="color:#999">${x.fonte || ''}</td></tr>`).join('');
+  document.getElementById('ensCnt').textContent = M.length + ' meses';
+  const dt = s => s ? new Date(s).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  document.getElementById('ensFonte').textContent = `Fonte: leituras de todos os projetos do Laboratório (Lab01, desde nov/25) + histórico da planilha já na base deste painel (antes de nov/25, só Controle de Qualidade — o P&D em planilha não está aqui). Tipo de ensaio = a leitura sem a idade (Compressão 1, 7 e 28 dias = Compressão). Quando as duas bases têm o mesmo tipo no mesmo mês, vale o maior número. Mês = data da leitura, como no Contador de Leituras do app. Só meses fechados; o mês corrente aparece como parcial nos cartões. Contado pelo sync em ${dt(D.ts)}.`;
 }
 function setFTab(id,btn){document.querySelectorAll('.ftab-page').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));document.getElementById('ftab-'+id).classList.add('on');btn.classList.add('on');}
 
